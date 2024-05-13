@@ -1,5 +1,6 @@
 package io.orphe.orphecoresdkforandroid;
 
+import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -14,6 +15,7 @@ import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.ParcelUuid;
 import android.util.Log;
@@ -35,16 +37,19 @@ public class Orphe {
     private final Handler mHandler = new Handler();
     private boolean mIsScanning = false;
     private int mStepsNumber = 0;
+    public final OrpheSidePosition sidePosition;
 
     /**
      * Orphe constructor
      *
      * @param context       Context.
+     * @param sidePosition Side and Position.
      * @param orpheCallback Callback to register.
      */
-    public Orphe(@NonNull final Context context, @NonNull final OrpheCallback orpheCallback) {
+    public Orphe(@NonNull final Context context, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheCallback orpheCallback) {
         mContext = context;
         mOrpheCallback = orpheCallback;
+        this.sidePosition = sidePosition;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -60,6 +65,7 @@ public class Orphe {
     /**
      * Begin BLE connection.
      */
+    @SuppressLint("MissingPermission")
     public void begin() {
         if (mIsScanning) {
             mBluetoothLeScanner.stopScan(scanCallback);
@@ -96,6 +102,7 @@ public class Orphe {
     /**
      * Stop and disconnect GATT connection.
      */
+    @SuppressLint("MissingPermission")
     public void stop() {
         if (mBluetoothGatt != null) {
             mBluetoothGatt.disconnect();
@@ -107,6 +114,7 @@ public class Orphe {
         }
     }
 
+    @SuppressLint("MissingPermission")
     private void connectGatt(BluetoothDevice device) {
         if (mBluetoothGatt != null && mBluetoothGatt.getDevice().equals(device)) {
             Log.d(TAG, "BluetoothGatt already exists, try to connect");
@@ -123,6 +131,7 @@ public class Orphe {
     }
 
     private final ScanCallback scanCallback = new ScanCallback() {
+        @SuppressLint("MissingPermission")
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
@@ -138,6 +147,7 @@ public class Orphe {
     };
 
     private final BluetoothGattCallback mBluetoothGattCallback = new BluetoothGattCallback() {
+        @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             if (newState == BluetoothProfile.STATE_CONNECTED) {
@@ -205,20 +215,20 @@ public class Orphe {
 
         private void outputGattServicesToLog(final List<BluetoothGattService> gattServices) {
             if (gattServices == null) return;
-            if (gattServices.size() > 0) {
+            if (!gattServices.isEmpty()) {
                 Log.d(TAG, "Services:");
                 for (BluetoothGattService gattService : gattServices) {
                     Log.d(TAG, gattService.getUuid().toString());
                     List<BluetoothGattCharacteristic> gattCharacteristics
                             = gattService.getCharacteristics();
-                    if (gattCharacteristics.size() > 0) {
+                    if (!gattCharacteristics.isEmpty()) {
                         Log.d(TAG, "    Characteristics:");
                         for (BluetoothGattCharacteristic characteristic : gattCharacteristics) {
                             Log.d(TAG, "    " + characteristic.getUuid().toString());
                             final byte[] data = characteristic.getValue();
                             List<BluetoothGattDescriptor> descriptors
                                     = characteristic.getDescriptors();
-                            if (descriptors.size() > 0) {
+                            if (!descriptors.isEmpty()) {
                                 Log.d(TAG, "        Descriptors:");
                                 for (BluetoothGattDescriptor descriptor : descriptors) {
                                     Log.d(TAG, "        " + descriptor.getUuid().toString());
@@ -249,7 +259,7 @@ public class Orphe {
                 return;
             }
             Log.d(TAG, "setCharacteristicNotification to " + enable);
-            boolean result = gatt.setCharacteristicNotification(characteristic, enable);
+            @SuppressLint("MissingPermission") boolean result = gatt.setCharacteristicNotification(characteristic, enable);
             Log.d(TAG, "setCharacteristicNotification " + (result ? "success" : "fail"));
             BluetoothGattDescriptor descriptor = characteristic.getDescriptor(GattUUIDDefine.UUID_DESC_CLIENT_CHAR_CONFIG);
             if (descriptor == null) {
@@ -260,7 +270,7 @@ public class Orphe {
                     BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
                     : BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE);
             Log.d(TAG, "descriptor setresult:" + setResult);
-            boolean writeResult = gatt.writeDescriptor(descriptor);
+            @SuppressLint("MissingPermission") boolean writeResult = gatt.writeDescriptor(descriptor);
             Log.d(TAG, "descriptor writeresult:" + writeResult);
             if (enable) {
                 mOrpheCallback.onStartNotify(characteristicUUID);
@@ -270,21 +280,21 @@ public class Orphe {
         }
 
         private void onRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
-            if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {
+            // 歩容解析
+            // if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {
+            //    mOrpheCallback.gotData(value);
+            // }
+            // 生データ
+            if (GattUUIDDefine.UUID_CHAR_ORPHE_SENSOR_VALUES.equals(characteristic.getUuid())) {
                 // Data
-                mOrpheCallback.gotData(value);
-                // Steps Number
-                final byte header = value[1];
-                short stepsNow = getUint16(value, 2);
-                if ((0 <= header && header <= 2) && stepsNow > mStepsNumber) {
-                    mOrpheCallback.gotStepsNumber(stepsNow);
-                    mStepsNumber = stepsNow;
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    try {
+                        mOrpheCallback.gotSensorValues(OrpheSensorValue.fromBytes(value, sidePosition));
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
                 }
             }
-        }
-
-        private short getUint16(@NonNull byte[] data, int index) {
-            return (short) (((data[index] & 0xFF) << 8) | (data[index + 1] & 0xFF));
         }
     };
 }

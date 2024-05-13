@@ -30,23 +30,19 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheCallback mOrpheCallbackLeft = new OrpheCallback() {
         @Override
-        public void gotData(byte[] data) {
-            if (data != null && data.length > 0) {
-                final StringBuilder stringBuilder = new StringBuilder();
+        public void gotSensorValues(OrpheSensorValue[] values) {
+            if (values != null && values.length > 0) {
+                /*final StringBuilder stringBuilder = new StringBuilder();
                 stringBuilder.append("Orphe Data:");
-                for (byte byteChar : data)
+                for (byte byteChar : values)
                     stringBuilder.append(String.format("%02X ", byteChar));
                 if (mValueResultViewLeft != null) {
                     mValueResultViewLeft.setText(stringBuilder);
-                }
+                }*/
             }
         }
 
-        @SuppressLint("DefaultLocale")
-        @Override
-        public void gotStepsNumber(int stepsNumber) {
-        }
-
+        @SuppressLint("MissingPermission")
         @Override
         public void onScan(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
@@ -59,6 +55,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        @SuppressLint("MissingPermission")
         @Override
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
@@ -67,6 +64,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        @SuppressLint("MissingPermission")
         @Override
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
@@ -79,23 +77,10 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheCallback mOrpheCallbackRight = new OrpheCallback() {
         @Override
-        public void gotData(byte[] data) {
-            if (data != null && data.length > 0) {
-                final StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.append("Orphe Data:");
-                for (byte byteChar : data)
-                    stringBuilder.append(String.format("%02X ", byteChar));
-                if (mValueResultViewRight != null) {
-                    mValueResultViewRight.setText(stringBuilder);
-                }
-            }
+        public void gotSensorValues(OrpheSensorValue[] values) {
         }
 
-        @SuppressLint("DefaultLocale")
-        @Override
-        public void gotStepsNumber(int stepsNumber) {
-        }
-
+        @SuppressLint("MissingPermission")
         @Override
         public void onScan(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
@@ -108,6 +93,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        @SuppressLint("MissingPermission")
         @Override
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
@@ -116,6 +102,7 @@ public class MainActivity extends AppCompatActivity {
             }
         }
 
+        @SuppressLint("MissingPermission")
         @Override
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
@@ -158,8 +145,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mPermissionGranted = true;
         }
-        mOrpheLeft = new Orphe(this, mOrpheCallbackLeft);
-        mOrpheRight = new Orphe(this, mOrpheCallbackRight);
+        mOrpheLeft = new Orphe(this, OrpheSidePosition.leftPlantar, mOrpheCallbackLeft);
+        mOrpheRight = new Orphe(this, OrpheSidePosition.rightPlantar, mOrpheCallbackRight);
         connectButtonLeft.setOnClickListener(v -> {
             mConnectionStatusTextViewLeft.setText("機器をスキャン中");
             mOrpheLeft.begin();

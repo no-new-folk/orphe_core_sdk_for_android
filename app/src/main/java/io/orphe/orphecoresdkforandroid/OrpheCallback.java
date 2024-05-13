@@ -6,11 +6,7 @@ import java.util.UUID;
 
 public abstract class OrpheCallback {
 
-    public void gotData(byte[] data) {
-
-    }
-
-    public void gotStepsNumber(int stepsNumber) {
+    public void gotSensorValues(OrpheSensorValue[] sensorValues) {
 
     }
 
