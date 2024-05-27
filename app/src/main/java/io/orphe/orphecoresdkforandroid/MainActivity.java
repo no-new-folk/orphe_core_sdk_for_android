@@ -12,11 +12,12 @@ import android.widget.TextView;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.activity.EdgeToEdge;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.graphics.Insets;
-import androidx.core.view.ViewCompat;
-import androidx.core.view.WindowInsetsCompat;
+
+import io.orphe.orphecoresdk.Orphe;
+import io.orphe.orphecoresdk.OrpheCallback;
+import io.orphe.orphecoresdk.OrpheSensorValue;
+import io.orphe.orphecoresdk.OrpheSidePosition;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();

@@ -1,19 +1,16 @@
 plugins {
-    alias(libs.plugins.androidApplication)
+    alias(libs.plugins.androidLibrary)
 }
 
 android {
-    namespace = "io.orphe.orphecoresdkforandroid"
+    namespace = "io.orphe.orphecoresdk"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "io.orphe.orphecoresdkforandroid"
         minSdk = 24
-        targetSdk = 34
-        versionCode = 1
-        versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        consumerProguardFiles("consumer-rules.pro")
     }
 
     buildTypes {
@@ -35,9 +32,6 @@ dependencies {
 
     implementation(libs.appcompat)
     implementation(libs.material)
-    implementation(libs.activity)
-    implementation(libs.constraintlayout)
-    implementation(project(":orphecoresdk"))
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

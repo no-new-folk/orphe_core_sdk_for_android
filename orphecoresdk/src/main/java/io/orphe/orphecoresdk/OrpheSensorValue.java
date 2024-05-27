@@ -1,6 +1,5 @@
-package io.orphe.orphecoresdkforandroid;
+package io.orphe.orphecoresdk;
 
-import android.annotation.SuppressLint;
 import android.os.Build;
 
 import androidx.annotation.NonNull;

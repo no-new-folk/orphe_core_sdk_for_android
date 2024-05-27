@@ -1,6 +1,4 @@
-package io.orphe.orphecoresdkforandroid;
-
-import android.content.Context;
+package io.orphe.orphecoresdk;
 
 import androidx.annotation.NonNull;
 

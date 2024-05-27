@@ -1,12 +1,9 @@
-package io.orphe.orphecoresdkforandroid;
+package io.orphe.orphecoresdk;
 
 import android.os.Build;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
 
 public class DeviceInfoValue {
 

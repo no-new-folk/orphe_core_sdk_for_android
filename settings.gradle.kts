@@ -21,3 +21,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ORPHE CORE SDK for Android"
 include(":app")
+include(":orphecoresdk")

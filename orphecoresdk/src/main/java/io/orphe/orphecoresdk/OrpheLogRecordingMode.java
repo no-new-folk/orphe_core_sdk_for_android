@@ -1,4 +1,4 @@
-package io.orphe.orphecoresdkforandroid;
+package io.orphe.orphecoresdk;
 
 public enum OrpheLogRecordingMode {
     /// 停止
