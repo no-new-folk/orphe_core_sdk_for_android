@@ -17,10 +17,12 @@ import android.bluetooth.le.ScanSettings;
 import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
+import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
+import androidx.annotation.RequiresApi;
 
 import java.util.Arrays;
 import java.util.List;
@@ -36,8 +38,11 @@ public class Orphe {
     private BluetoothGatt mBluetoothGatt;
     private final Handler mHandler = new Handler();
     private boolean mIsScanning = false;
-    private int mStepsNumber = 0;
     public final OrpheSidePosition sidePosition;
+
+    public final OrpheAccRange accRange;
+
+    public final OrpheGyroRange gyroRange;
 
     /**
      * Orphe constructor
@@ -46,10 +51,12 @@ public class Orphe {
      * @param sidePosition Side and Position.
      * @param orpheCallback Callback to register.
      */
-    public Orphe(@NonNull final Context context, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheCallback orpheCallback) {
+    public Orphe(@NonNull final Context context, @NonNull final OrpheCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
+        this.accRange = accRange;
+        this.gyroRange = gyroRange;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -60,6 +67,10 @@ public class Orphe {
             }
         }
         mBluetoothDevice = null;
+    }
+
+    public Orphe(@NonNull final Context context, @NonNull final OrpheCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
+        this(context, orpheCallback, sidePosition, OrpheAccRange.range16, OrpheGyroRange.range2000);
     }
 
     /**
@@ -150,12 +161,22 @@ public class Orphe {
         @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            Log.d(TAG, "onConnectionStateChange:" + status + " " + newState);
+            final Handler mainHandler = new Handler(Looper.getMainLooper());
             if (newState == BluetoothProfile.STATE_CONNECTED) {
-                mOrpheCallback.onConnect(gatt.getDevice());
+                Log.d(TAG, "connected");
+                mainHandler.post(
+                    () -> {
+                        mOrpheCallback.onConnect(gatt.getDevice());
+                    }
+                );
                 gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                mOrpheCallback.onDisconnect(gatt.getDevice());
-                mStepsNumber = 0;
+                mainHandler.post(
+                        () -> {
+                            mOrpheCallback.onDisconnect(gatt.getDevice());
+                        }
+                );
             }
         }
 
@@ -164,7 +185,7 @@ public class Orphe {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 outputGattServicesToLog(gatt.getServices());
                 setCharacteristicNotification(gatt, GattUUIDDefine.UUID_SERVICE_ORPHE_OTHER_SERVICE,
-                        GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS, true);
+                        GattUUIDDefine.UUID_CHAR_ORPHE_SENSOR_VALUES, true);
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -173,12 +194,13 @@ public class Orphe {
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
             UUID characteristicUuid = characteristic.getUuid();
-            if (characteristicUuid == null) {
+            if (characteristicUuid == GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION) {
+                Log.d(TAG, "onCharacteristicWrite UUID:" + characteristicUuid
+                        + ", status:" + status);
+            } else {
                 Log.d(TAG, "onCharacteristicWrite UUID is null");
                 return;
             }
-            Log.d(TAG, "onCharacteristicWrite UUID:" + characteristicUuid
-                    + ", status:" + status);
         }
 
         @Override
@@ -189,6 +211,7 @@ public class Orphe {
             Log.d(TAG, "                  Char UUID:" + descriptor.getCharacteristic().getUuid().toString());
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -196,6 +219,7 @@ public class Orphe {
             }
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -203,11 +227,13 @@ public class Orphe {
             }
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             onRead(gatt, characteristic, value);
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             onRead(gatt, characteristic, characteristic.getValue());
@@ -279,7 +305,9 @@ public class Orphe {
             }
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.O)
         private void onRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+            final Handler mainHandler = new Handler(Looper.getMainLooper());
             // 歩容解析
             // if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {
             //    mOrpheCallback.gotData(value);
@@ -287,13 +315,15 @@ public class Orphe {
             // 生データ
             if (GattUUIDDefine.UUID_CHAR_ORPHE_SENSOR_VALUES.equals(characteristic.getUuid())) {
                 // Data
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    try {
-                        mOrpheCallback.gotSensorValues(OrpheSensorValue.fromBytes(value, sidePosition));
-                    } catch (Exception e) {
-                        throw new RuntimeException(e);
-                    }
-                }
+                mainHandler.post(
+                        () -> {
+                            try {
+                                mOrpheCallback.gotSensorValues(OrpheSensorValue.fromBytes(value, sidePosition, accRange, gyroRange));
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                );
             }
         }
     };

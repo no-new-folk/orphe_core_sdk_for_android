@@ -32,13 +32,9 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void gotSensorValues(OrpheSensorValue[] values) {
             if (values != null && values.length > 0) {
-                /*final StringBuilder stringBuilder = new StringBuilder();
-                stringBuilder.append("Orphe Data:");
-                for (byte byteChar : values)
-                    stringBuilder.append(String.format("%02X ", byteChar));
                 if (mValueResultViewLeft != null) {
-                    mValueResultViewLeft.setText(stringBuilder);
-                }*/
+                    mValueResultViewLeft.setText(values[0].toString());
+                }
             }
         }
 
@@ -78,6 +74,7 @@ public class MainActivity extends AppCompatActivity {
     private final OrpheCallback mOrpheCallbackRight = new OrpheCallback() {
         @Override
         public void gotSensorValues(OrpheSensorValue[] values) {
+            Log.d(TAG, "" + values.length);
         }
 
         @SuppressLint("MissingPermission")
@@ -145,8 +142,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mPermissionGranted = true;
         }
-        mOrpheLeft = new Orphe(this, OrpheSidePosition.leftPlantar, mOrpheCallbackLeft);
-        mOrpheRight = new Orphe(this, OrpheSidePosition.rightPlantar, mOrpheCallbackRight);
+        mOrpheLeft = new Orphe(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
+        mOrpheRight = new Orphe(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
         connectButtonLeft.setOnClickListener(v -> {
             mConnectionStatusTextViewLeft.setText("機器をスキャン中");
             mOrpheLeft.begin();

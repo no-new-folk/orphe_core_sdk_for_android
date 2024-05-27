@@ -6,6 +6,7 @@ import android.os.Build;
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 
@@ -132,18 +133,49 @@ public class OrpheSensorValue {
       this.isResendData = isResendData;
       this.dropNum = dropNum;
       this.isStoredData = isStoredData;
-  }
+    }
+
+    public String toString(){
+      final StringBuilder builder = new StringBuilder();
+        builder.append("acc:(");
+        builder.append(String.format("%.2f", accX));
+        builder.append(",");
+        builder.append(String.format("%.2f", accY));
+        builder.append(",");
+        builder.append(String.format("%.2f", accZ));
+        builder.append(")\n");
+        builder.append("gyro:(");
+        builder.append(String.format("%.2f", gyroX));
+        builder.append(",");
+        builder.append(String.format("%.2f", gyroY));
+        builder.append(",");
+        builder.append(String.format("%.2f", gyroZ));
+        builder.append(")\n");
+        builder.append("euler:(");
+        builder.append(String.format("%.2f", eulerX));
+        builder.append(",");
+        builder.append(String.format("%.2f", eulerY));
+        builder.append(",");
+        builder.append(String.format("%.2f", eulerZ));
+        builder.append(")\n");
+        builder.append("quat:(");
+        builder.append(String.format("%.2f", quatW));
+        builder.append(",");
+        builder.append(String.format("%.2f", quatX));
+        builder.append(",");
+        builder.append(String.format("%.2f", quatY));
+        builder.append(",");
+        builder.append(String.format("%.2f", quatZ));
+        builder.append(")\n");
+        return builder.toString();
+    }
 
 
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static OrpheSensorValue[] fromBytes(
-            byte[] bytes, OrpheSidePosition sidePosition) throws Exception {
+            byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange) throws Exception {
         if (bytes.length == 92) {
             final ArrayList<OrpheSensorValue> res = new ArrayList();
-            final gyroRange = deviceInfo.gyroRange?.value.toDouble() ??
-            OrpheGyroRange.defaultValue.value.toDouble();
-            final accRange = deviceInfo.accRange?.value.toDouble() ??
-            OrpheAccRange.defaultValue.value.toDouble();
             int index = 0;
             boolean isResend = false;
             switch (getUint8(bytes,0)) {
@@ -181,12 +213,12 @@ public class OrpheSensorValue {
                 final double quatX =  parseInt(bytes,index + 2) / 16384.0;
                 final double quatY = parseInt(bytes,index + 4) / 16384.0;
                 final double quatZ =  parseInt(bytes,index + 6) / 16384.0;
-                final double gyroX = parseInt(bytes,index + 8) / (double)(1 << 15) * gyroRange;
-                final double gyroY = parseInt(bytes,index + 10) / (double)(1 << 15) * gyroRange;
-                final double gyroZ =  parseInt(bytes,index + 12) / (double)(1 << 15) * gyroRange;
-                final double accX = parseInt(bytes,index + 14) / (double)(1 << 15) * accRange;
-                final double accY =  parseInt(bytes,index + 16) / (double)(1 << 15) * accRange;
-                final double accZ =  parseInt(bytes,index + 18) / (double)(1 << 15) * accRange;
+                final double gyroX = parseInt(bytes,index + 8) / (double)(1 << 15) * gyroRange.value;
+                final double gyroY = parseInt(bytes,index + 10) / (double)(1 << 15) * gyroRange.value;
+                final double gyroZ =  parseInt(bytes,index + 12) / (double)(1 << 15) * gyroRange.value;
+                final double accX = parseInt(bytes,index + 14) / (double)(1 << 15) * accRange.value;
+                final double accY =  parseInt(bytes,index + 16) / (double)(1 << 15) * accRange.value;
+                final double accZ =  parseInt(bytes,index + 18) / (double)(1 << 15) * accRange.value;
                 final double eulerX = toEulerX(quatW, quatX, quatY, quatZ);
                 final double eulerY = toEulerY(quatW, quatX, quatY, quatZ);
                 final double eulerZ = toEulerZ(quatW, quatX, quatY, quatZ);
@@ -198,8 +230,8 @@ public class OrpheSensorValue {
                                 sidePosition,
                                 serialNumber,
                                 s,
-                                timestamp,
-                                timestamp,
+                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                                 quatX,
                                 quatY,
                                 quatZ,
@@ -219,12 +251,12 @@ public class OrpheSensorValue {
                                 eulerX / 180.0,
                                 eulerY / 180.0,
                                 eulerZ / 180.0,
-                                accX / accRange,
-                                accY / accRange,
-                                accZ / accRange,
-                                gyroX / gyroRange,
-                                gyroY / gyroRange,
-                                gyroZ / gyroRange,
+                                accX / accRange.value,
+                                accY / accRange.value,
+                                accZ / accRange.value,
+                                gyroX / gyroRange.value,
+                                gyroY / gyroRange.value,
+                                gyroZ / gyroRange.value,
                                 0,
                                 0,
                                 0,
