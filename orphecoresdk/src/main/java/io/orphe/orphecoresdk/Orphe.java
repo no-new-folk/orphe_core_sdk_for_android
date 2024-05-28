@@ -37,12 +37,18 @@ public class Orphe {
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGatt mBluetoothGatt;
     private final Handler mHandler = new Handler();
-    private boolean mIsScanning = false;
     public final OrpheSidePosition sidePosition;
 
     public final OrpheAccRange accRange;
 
     public final OrpheGyroRange gyroRange;
+
+    OrpheCoreStatus status(){
+        return mStatus;
+    }
+
+    @NonNull
+    private OrpheCoreStatus mStatus = OrpheCoreStatus.none;
 
     /**
      * Orphe constructor
@@ -77,26 +83,28 @@ public class Orphe {
      * Begin BLE connection.
      */
     @SuppressLint("MissingPermission")
-    public void begin() {
-        if (mIsScanning) {
+    public void startScan() {
+        if(mStatus == OrpheCoreStatus.disconnecting || mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting){
+            return;
+        }
+        if (mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
-            mIsScanning = false;
+            mStatus = OrpheCoreStatus.none;
         }
         if (mBluetoothDevice != null) {
             mOrpheCallback.onScan(mBluetoothDevice);
-            connectGatt(mBluetoothDevice);
+            connect(mBluetoothDevice);
             return;
         }
         mHandler.postDelayed(() -> {
-            if (mIsScanning) {
+            if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
-                mIsScanning = false;
                 mOrpheCallback.onScan(null);
             }
         }, SCAN_PERIOD);
 
         Log.d(TAG, "begin startScan");
-        mIsScanning = true;
+        mStatus = OrpheCoreStatus.scanned;
         List<ScanFilter> scanFilters = Arrays.asList(
                 new ScanFilter.Builder()
                         .setServiceUuid(ParcelUuid.fromString(
@@ -114,26 +122,53 @@ public class Orphe {
      * Stop and disconnect GATT connection.
      */
     @SuppressLint("MissingPermission")
-    public void stop() {
+    public void stopScan() {
+        if(mStatus == OrpheCoreStatus.none){
+            return;
+        }
         if (mBluetoothGatt != null) {
             mBluetoothGatt.disconnect();
         }
         mBluetoothDevice = null;
-        if (mIsScanning) {
+        if (mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
-            mIsScanning = false;
+            mStatus = OrpheCoreStatus.none;
         }
     }
 
+
+    /**
+     * Stop and disconnect GATT connection.
+     */
     @SuppressLint("MissingPermission")
-    private void connectGatt(BluetoothDevice device) {
+    public void disconnect() {
+        if(mStatus != OrpheCoreStatus.connected){
+            return;
+        }
+        mStatus = OrpheCoreStatus.disconnecting;
+        if (mBluetoothGatt != null) {
+            mBluetoothGatt.disconnect();
+        }
+        mBluetoothDevice = null;
+    }
+
+    @SuppressLint("MissingPermission")
+    private void connect(BluetoothDevice device) {
+        if(mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting){
+            return;
+        }
+        if(mStatus == OrpheCoreStatus.scanned) {
+            mBluetoothLeScanner.stopScan(scanCallback);
+        }
         if (mBluetoothGatt != null && mBluetoothGatt.getDevice().equals(device)) {
             Log.d(TAG, "BluetoothGatt already exists, try to connect");
+            mStatus = OrpheCoreStatus.connecting;
             mBluetoothGatt.connect();
         } else {
             try {
                 // connect to the GATT server on the device
                 Log.d(TAG, "connect try to connect:" + mBluetoothDevice.getAddress());
+                mStatus = OrpheCoreStatus.connecting;
                 mBluetoothGatt = device.connectGatt(mContext, true, mBluetoothGattCallback);
             } catch (IllegalArgumentException e) {
                 Log.w(TAG, "Device not found with provided address.");
@@ -149,10 +184,7 @@ public class Orphe {
             Log.d(TAG, "onScanResult:" + device.getName());
             if (device.getName().contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mBluetoothLeScanner.stopScan(scanCallback);
-                mIsScanning = false;
                 mOrpheCallback.onScan(device);
-                connectGatt(device);
             }
         }
     };
@@ -167,6 +199,7 @@ public class Orphe {
                 Log.d(TAG, "connected");
                 mainHandler.post(
                     () -> {
+                        mStatus = OrpheCoreStatus.connected;
                         mOrpheCallback.onConnect(gatt.getDevice());
                     }
                 );
@@ -174,7 +207,9 @@ public class Orphe {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 mainHandler.post(
                         () -> {
+                            mStatus = OrpheCoreStatus.none;
                             mOrpheCallback.onDisconnect(gatt.getDevice());
+                            mBluetoothLeScanner.startScan(scanCallback);
                         }
                 );
             }
@@ -191,53 +226,53 @@ public class Orphe {
             }
         }
 
-        @Override
-        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            UUID characteristicUuid = characteristic.getUuid();
-            if (characteristicUuid == GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION) {
-                Log.d(TAG, "onCharacteristicWrite UUID:" + characteristicUuid
-                        + ", status:" + status);
-            } else {
-                Log.d(TAG, "onCharacteristicWrite UUID is null");
-                return;
-            }
-        }
+        // @Override
+        // public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+        //     UUID characteristicUuid = characteristic.getUuid();
+        //     if (characteristicUuid == GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION) {
+        //         Log.d(TAG, "onCharacteristicWrite UUID:" + characteristicUuid
+        //                 + ", status:" + status);
+        //     } else {
+        //         Log.d(TAG, "onCharacteristicWrite UUID is null");
+        //         return;
+        //     }
+        // }
 
-        @Override
-        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            super.onDescriptorWrite(gatt, descriptor, status);
-            Log.d(TAG, "onDescriptorWrite Desc UUID:" + descriptor.getUuid().toString()
-                    + ", status:" + status);
-            Log.d(TAG, "                  Char UUID:" + descriptor.getCharacteristic().getUuid().toString());
-        }
+        // @Override
+        // public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+        //     super.onDescriptorWrite(gatt, descriptor, status);
+        //     Log.d(TAG, "onDescriptorWrite Desc UUID:" + descriptor.getUuid().toString()
+        //             + ", status:" + status);
+        //     Log.d(TAG, "                  Char UUID:" + descriptor.getCharacteristic().getUuid().toString());
+        // }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
-        @Override
-        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                onRead(gatt, characteristic, value);
-            }
-        }
+        // @RequiresApi(api = Build.VERSION_CODES.O)
+        // @Override
+        // public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
+        //     if (status == BluetoothGatt.GATT_SUCCESS) {
+        //         onRead(gatt, characteristic, value);
+        //     }
+        // }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
-        @Override
-        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, int status) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                onRead(gatt, characteristic, characteristic.getValue());
-            }
-        }
+        // @RequiresApi(api = Build.VERSION_CODES.O)
+        // @Override
+        // public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, int status) {
+        //     if (status == BluetoothGatt.GATT_SUCCESS) {
+        //         onRead(gatt, characteristic, characteristic.getValue());
+        //     }
+        // }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
-        @Override
-        public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
-            onRead(gatt, characteristic, value);
-        }
+        // @RequiresApi(api = Build.VERSION_CODES.O)
+        // @Override
+        // public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+        //     onRead(gatt, characteristic, value);
+        // }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
-        @Override
-        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            onRead(gatt, characteristic, characteristic.getValue());
-        }
+        // @RequiresApi(api = Build.VERSION_CODES.O)
+        // @Override
+        // public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+        //     onRead(gatt, characteristic, characteristic.getValue());
+        // }
 
         private void outputGattServicesToLog(final List<BluetoothGattService> gattServices) {
             if (gattServices == null) return;

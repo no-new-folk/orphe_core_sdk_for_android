@@ -147,11 +147,11 @@ public class MainActivity extends AppCompatActivity {
         mOrpheRight = new Orphe(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
         connectButtonLeft.setOnClickListener(v -> {
             mConnectionStatusTextViewLeft.setText("機器をスキャン中");
-            mOrpheLeft.begin();
+            mOrpheLeft.startScan();
         });
         connectButtonRight.setOnClickListener(v -> {
             mConnectionStatusTextViewRight.setText("機器をスキャン中");
-            mOrpheRight.begin();
+            mOrpheRight.startScan();
         });
     }
 
@@ -185,8 +185,8 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "onDestroy");
-        mOrpheLeft.stop();
-        mOrpheRight.stop();
+        mOrpheLeft.stopScan();
+        mOrpheRight.stopScan();
         mOrpheLeft = null;
         mOrpheRight = null;
     }
