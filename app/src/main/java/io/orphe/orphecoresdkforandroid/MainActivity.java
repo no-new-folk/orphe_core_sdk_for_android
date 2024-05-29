@@ -4,6 +4,7 @@ import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
 import android.content.pm.PackageManager;
+import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.util.Log;
@@ -16,18 +17,25 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import io.orphe.orphecoresdk.Orphe;
 import io.orphe.orphecoresdk.OrpheCallback;
+import io.orphe.orphecoresdk.OrpheCoreStatus;
 import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
 public class MainActivity extends AppCompatActivity {
     private static final String TAG = MainActivity.class.getSimpleName();
     private boolean mPermissionGranted = false;
+
+    private Button mConnectButtonLeft;
+    private Button mConnectButtonRight;
     private TextView mConnectionStatusTextViewLeft;
     private TextView mValueResultViewLeft;
     private TextView mConnectionStatusTextViewRight;
     private TextView mValueResultViewRight;
     private Orphe mOrpheLeft;
     private Orphe mOrpheRight;
+
+    private BluetoothDevice mFoundDeviceLeft;
+    private BluetoothDevice mFoundDeviceRight;
 
     private final OrpheCallback mOrpheCallbackLeft = new OrpheCallback() {
         @Override
@@ -44,9 +52,13 @@ public class MainActivity extends AppCompatActivity {
         public void onScan(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
+                    mFoundDeviceLeft = bluetoothDevice;
+                    changeButtonState(mConnectButtonLeft, OrpheCoreStatus.scanned);
                     mConnectionStatusTextViewLeft.setText(
                             String.format("%s：機器が見つかりました", bluetoothDevice.getName()));
                 } else {
+                    mFoundDeviceLeft = null;
+                    changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
                     mConnectionStatusTextViewLeft.setText("機器が見つかりませんでした");
                 }
             }
@@ -56,6 +68,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
+                changeButtonState(mConnectButtonLeft, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -65,6 +78,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
+                changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -75,17 +89,25 @@ public class MainActivity extends AppCompatActivity {
     private final OrpheCallback mOrpheCallbackRight = new OrpheCallback() {
         @Override
         public void gotSensorValues(OrpheSensorValue[] values) {
-            Log.d(TAG, "" + values.length);
+            if (values != null && values.length > 0) {
+                if (mValueResultViewRight != null) {
+                    mValueResultViewRight.setText(values[0].toString());
+                }
+            }
         }
 
         @SuppressLint("MissingPermission")
         @Override
         public void onScan(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
+                changeButtonState(mConnectButtonRight, OrpheCoreStatus.scanned);
                 if (bluetoothDevice != null) {
+                    mFoundDeviceRight = bluetoothDevice;
                     mConnectionStatusTextViewRight.setText(
                             String.format("%s：機器が見つかりました", bluetoothDevice.getName()));
                 } else {
+                    mFoundDeviceRight = null;
+                    changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
                     mConnectionStatusTextViewRight.setText("機器が見つかりませんでした");
                 }
             }
@@ -95,6 +117,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
+                changeButtonState(mConnectButtonRight, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -104,6 +127,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
+                changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -115,8 +139,8 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         Log.d(TAG, "onCreate");
         setContentView(R.layout.activity_main);
-        Button connectButtonLeft = findViewById(R.id.button_connect_left);
-        Button connectButtonRight = findViewById(R.id.button_connect_right);
+        mConnectButtonLeft = findViewById(R.id.button_connect_left);
+        mConnectButtonRight = findViewById(R.id.button_connect_right);
         mConnectionStatusTextViewLeft = findViewById(R.id.text_connection_status_left);
         mValueResultViewLeft = findViewById(R.id.text_value_result_left);
         mConnectionStatusTextViewRight = findViewById(R.id.text_connection_status_right);
@@ -145,13 +169,29 @@ public class MainActivity extends AppCompatActivity {
         }
         mOrpheLeft = new Orphe(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
         mOrpheRight = new Orphe(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
-        connectButtonLeft.setOnClickListener(v -> {
-            mConnectionStatusTextViewLeft.setText("機器をスキャン中");
-            mOrpheLeft.startScan();
+        changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
+        changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
+        mConnectButtonLeft.setOnClickListener(v -> {
+            final OrpheCoreStatus status = mOrpheLeft.status();
+            if(status == OrpheCoreStatus.none){
+                mConnectionStatusTextViewLeft.setText("機器をスキャン中");
+                mOrpheLeft.startScan();
+            } else if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
+                mOrpheLeft.connect(mFoundDeviceLeft);
+            } else if(status == OrpheCoreStatus.connected){
+                mOrpheLeft.disconnect();
+            }
         });
-        connectButtonRight.setOnClickListener(v -> {
-            mConnectionStatusTextViewRight.setText("機器をスキャン中");
-            mOrpheRight.startScan();
+        mConnectButtonRight.setOnClickListener(v -> {
+            final OrpheCoreStatus status = mOrpheRight.status();
+            if(status == OrpheCoreStatus.none){
+                mConnectionStatusTextViewLeft.setText("機器をスキャン中");
+                mOrpheRight.startScan();
+            } else if(status == OrpheCoreStatus.scanned && mFoundDeviceRight != null){
+                mOrpheRight.connect(mFoundDeviceRight);
+            } else if(status == OrpheCoreStatus.connected){
+                mOrpheRight.disconnect();
+            }
         });
     }
 
@@ -185,9 +225,25 @@ public class MainActivity extends AppCompatActivity {
     protected void onDestroy() {
         super.onDestroy();
         Log.d(TAG, "onDestroy");
-        mOrpheLeft.stopScan();
-        mOrpheRight.stopScan();
+        mOrpheLeft.disconnect();
+        mOrpheRight.disconnect();
         mOrpheLeft = null;
         mOrpheRight = null;
+    }
+
+    private void changeButtonState(Button button, OrpheCoreStatus status){
+        if(status == OrpheCoreStatus.scanned) {
+            button.setBackgroundColor(Color.rgb(83, 109, 254));
+            button.setTextColor(Color.rgb(240, 240, 240));
+        } else if(status == OrpheCoreStatus.connecting){
+            button.setBackgroundColor(Color.rgb(255, 152, 0));
+            button.setTextColor(Color.rgb(240, 240, 240));
+        } else if(status == OrpheCoreStatus.connected){
+            button.setBackgroundColor(Color.rgb(76, 175, 80));
+            button.setTextColor(Color.rgb(240, 240, 240));
+        } else {
+            button.setBackgroundColor(Color.rgb(180, 180, 180));
+            button.setTextColor(Color.rgb(24, 24, 24));
+        }
     }
 }

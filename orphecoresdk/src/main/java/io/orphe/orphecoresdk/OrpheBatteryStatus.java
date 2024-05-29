@@ -1,5 +1,8 @@
 package io.orphe.orphecoresdk;
 
+/**
+ * ORPHE COREのバッテリーのステータス。
+ */
 public enum OrpheBatteryStatus {
 
     /// 不明
@@ -14,7 +17,12 @@ public enum OrpheBatteryStatus {
     /// フル
     full;
 
-    /// 10進数を元に[OrpheBatteryStatus]を返します。
+    /**
+     * 数字からOrpheBatteryStatusに変換します。
+     *
+     * @param value 数字
+     * @return 対応するOrpheBatteryStatus。
+     */
     static OrpheBatteryStatus fromValue(int value) {
         OrpheBatteryStatus[] values = OrpheBatteryStatus.values();
         return values[value];

@@ -28,6 +28,13 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
+/**
+ * ORPHE COREを管理します。
+ *
+ * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+ *
+ * [disconnect]で切断します。
+ */
 public class Orphe {
     private static final String TAG = Orphe.class.getSimpleName();
     private static final long SCAN_PERIOD = 20000; // スキャンの期間（ミリ秒）
@@ -39,11 +46,22 @@ public class Orphe {
     private final Handler mHandler = new Handler();
     public final OrpheSidePosition sidePosition;
 
+    /**
+     * 加速度レンジ
+     */
     public final OrpheAccRange accRange;
 
+    /**
+     * ジャイロレンジ
+     */
     public final OrpheGyroRange gyroRange;
 
-    OrpheCoreStatus status(){
+    /**
+     * 現在の接続ステータスを返します。
+     *
+     * @return 現在の接続ステータス
+     */
+    public OrpheCoreStatus status(){
         return mStatus;
     }
 
@@ -51,11 +69,25 @@ public class Orphe {
     private OrpheCoreStatus mStatus = OrpheCoreStatus.none;
 
     /**
-     * Orphe constructor
+     * 対応する[BluetoothDevice]を返します。
      *
-     * @param context       Context.
-     * @param sidePosition Side and Position.
-     * @param orpheCallback Callback to register.
+     * @return 対応する[BluetoothDevice]
+     */
+    public BluetoothDevice device() { return mBluetoothDevice; }
+
+
+    /**
+     * ORPHE COREを管理します。
+     *
+     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+     *
+     * [disconnect]で切断します。
+     *
+     * @param context コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition この[Orphe]に対応する取り付け位置
+     * @param accRange 加速度レンジの設定
+     * @param gyroRange ジャイロレンジの設定
      */
     public Orphe(@NonNull final Context context, @NonNull final OrpheCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
         mContext = context;
@@ -75,12 +107,25 @@ public class Orphe {
         mBluetoothDevice = null;
     }
 
+    /**
+     * ORPHE COREを管理します。
+     *
+     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+     *
+     * [disconnect]で切断します。
+     *
+     * @param context コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition この[Orphe]に対応する取り付け位置
+     */
     public Orphe(@NonNull final Context context, @NonNull final OrpheCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
         this(context, orpheCallback, sidePosition, OrpheAccRange.range16, OrpheGyroRange.range2000);
     }
 
     /**
-     * Begin BLE connection.
+     * ORPHE COREのスキャンを開始します。
+     *
+     * 見つかった場合は[OrpheCallback.onScan]に対応する[BluetoothDevice]が渡されます。
      */
     @SuppressLint("MissingPermission")
     public void startScan() {
@@ -119,7 +164,7 @@ public class Orphe {
     }
 
     /**
-     * Stop and disconnect GATT connection.
+     * ORPHE COREのスキャンを停止します。
      */
     @SuppressLint("MissingPermission")
     public void stopScan() {
@@ -138,7 +183,7 @@ public class Orphe {
 
 
     /**
-     * Stop and disconnect GATT connection.
+     * ORPHE COREを切断します。
      */
     @SuppressLint("MissingPermission")
     public void disconnect() {
@@ -152,8 +197,13 @@ public class Orphe {
         mBluetoothDevice = null;
     }
 
+    /**
+     * 接続する[BluetoothDevice]を渡してORPHE CORE接続します。
+     *
+     * @param device [OrpheCallback.onScan]で渡された[BluetoothDevice]
+     */
     @SuppressLint("MissingPermission")
-    private void connect(BluetoothDevice device) {
+    public void connect(BluetoothDevice device) {
         if(mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting){
             return;
         }
@@ -197,13 +247,13 @@ public class Orphe {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "connected");
+                gatt.discoverServices();
                 mainHandler.post(
                     () -> {
                         mStatus = OrpheCoreStatus.connected;
                         mOrpheCallback.onConnect(gatt.getDevice());
                     }
                 );
-                gatt.discoverServices();
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 mainHandler.post(
                         () -> {
@@ -246,36 +296,38 @@ public class Orphe {
         //     Log.d(TAG, "                  Char UUID:" + descriptor.getCharacteristic().getUuid().toString());
         // }
 
-        // @RequiresApi(api = Build.VERSION_CODES.O)
-        // @Override
-        // public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
-        //     if (status == BluetoothGatt.GATT_SUCCESS) {
-        //         onRead(gatt, characteristic, value);
-        //     }
-        // }
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                onRead(gatt, characteristic, value);
+            }
+        }
 
-        // @RequiresApi(api = Build.VERSION_CODES.O)
-        // @Override
-        // public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, int status) {
-        //     if (status == BluetoothGatt.GATT_SUCCESS) {
-        //         onRead(gatt, characteristic, characteristic.getValue());
-        //     }
-        // }
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onCharacteristicRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                onRead(gatt, characteristic, characteristic.getValue());
+            }
+        }
 
-        // @RequiresApi(api = Build.VERSION_CODES.O)
-        // @Override
-        // public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
-        //     onRead(gatt, characteristic, value);
-        // }
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+            onNotified(gatt, characteristic, value);
+        }
 
-        // @RequiresApi(api = Build.VERSION_CODES.O)
-        // @Override
-        // public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-        //     onRead(gatt, characteristic, characteristic.getValue());
-        // }
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            onNotified(gatt, characteristic, characteristic.getValue());
+        }
 
         private void outputGattServicesToLog(final List<BluetoothGattService> gattServices) {
-            if (gattServices == null) return;
+            if (gattServices == null){
+                return;
+            }
             if (!gattServices.isEmpty()) {
                 Log.d(TAG, "Services:");
                 for (BluetoothGattService gattService : gattServices) {
@@ -339,9 +391,13 @@ public class Orphe {
                 mOrpheCallback.onStopNotify(characteristicUUID);
             }
         }
-
         @RequiresApi(api = Build.VERSION_CODES.O)
         private void onRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+
+        }
+
+        @RequiresApi(api = Build.VERSION_CODES.O)
+        private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             // 歩容解析
             // if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {

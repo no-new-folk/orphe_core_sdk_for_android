@@ -1,5 +1,8 @@
 package io.orphe.orphecoresdk;
 
+/**
+ * 左右の取り付け位置
+ */
 public enum OrpheSide {
 
     /// 左
@@ -11,7 +14,10 @@ public enum OrpheSide {
     /// 両方
     both;
 
-    /// 逆のサイドを取得します。
+    /**
+     * 逆のサイドを取得します。
+     * @return 逆のサイド
+     */
     OrpheSide other() {
         switch (this) {
             case left:
@@ -24,6 +30,11 @@ public enum OrpheSide {
         return null;
     }
 
+    /**
+     * [OrphePosition]を渡して[OrpheSidePosition]を取得します。
+     * @param position 取り付け位置
+     * @return OrpheSidePosition
+     */
     /// 位置を元に[OrpheSidePosition]を返します。
     OrpheSidePosition position(OrphePosition position) {
         switch (position) {

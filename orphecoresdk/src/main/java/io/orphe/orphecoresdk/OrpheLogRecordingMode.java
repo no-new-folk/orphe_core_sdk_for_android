@@ -1,5 +1,8 @@
 package io.orphe.orphecoresdk;
 
+/**
+ * ORPHE COREの計測モードの設定
+ */
 public enum OrpheLogRecordingMode {
     /// 停止
     stop,
@@ -13,7 +16,12 @@ public enum OrpheLogRecordingMode {
     /// 再開
     resume;
 
-    /// 10進数を元に[OrpheLogRecordingMode]を返します。
+    /**
+     * 数字からOrpheLogRecordingModeに変換します。
+     *
+     * @param value 数字
+     * @return 対応するOrpheLogRecordingMode。
+     */
     static OrpheLogRecordingMode fromValue(int value) {
         OrpheLogRecordingMode[] values = OrpheLogRecordingMode.values();
         return values[value];

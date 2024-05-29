@@ -2,6 +2,9 @@ package io.orphe.orphecoresdk;
 
 import androidx.annotation.NonNull;
 
+/**
+ * 左右と取り付け位置を含めた取り付け位置
+ */
 public enum OrpheSidePosition {
         /// 左の足底
         leftPlantar(OrpheSide.left, OrphePosition.plantar),
@@ -18,7 +21,9 @@ public enum OrpheSidePosition {
         /// すべて
         both( OrpheSide.both,  OrphePosition.both);
 
-        /// Orpheの左右と足底足背の位置を管理します。
+        /**
+         * 左右と取り付け位置を含めた取り付け位置
+         */
         OrpheSidePosition(
                 @NonNull final OrpheSide side, @NonNull final OrphePosition position
         ){
@@ -26,19 +31,32 @@ public enum OrpheSidePosition {
                 this.position = position;
         }
 
-        /// 左右
+        /**
+         * 左右の取り付け位置
+         */
         final OrpheSide side;
 
-        /// 足底足背
+        /**
+         * 足底足背の取り付け位置
+         */
         final OrphePosition position;
 
-        /// 10進数を元に[OrpheSidePosition]を返します。
+        /**
+         * OrpheSidePosition。
+         *
+         * @param value 数字
+         * @return 対応するOrpheSidePosition。
+         */
         static OrpheSidePosition fromValue(int value) {
                 OrpheSidePosition[] values = OrpheSidePosition.values();
                 return values[value];
         }
 
-        /// 逆側の[OrpheSidePosition]を返します。
+        /**
+         * 左右逆側の[OrpheSidePosition]を返します。
+         *
+         * @return 左右逆側の[OrpheSidePosition]
+         */
         OrpheSidePosition otherSide() {
                 switch (this) {
                         case leftPlantar:
@@ -55,7 +73,11 @@ public enum OrpheSidePosition {
                 return null;
         }
 
-        /// 逆側の[OrpheSidePosition]を返します。
+        /**
+         * 足背足底逆側の[OrpheSidePosition]を返します。
+         *
+         * @return 足背足底逆側の[OrpheSidePosition]
+         */
         OrpheSidePosition  otherPosition() {
                 switch (this) {
                         case leftPlantar:

@@ -9,8 +9,13 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.time.LocalDateTime;
 
+/**
+ * ORPHEのセンサー値を格納するためのクラス。
+ */
 public class OrpheSensorValue {
-
+    /**
+     * ORPHEのセンサー値を格納するためのクラス。
+     */
   public OrpheSensorValue(@NonNull
                      final OrpheSidePosition sidePosition,
 
@@ -134,6 +139,11 @@ public class OrpheSensorValue {
       this.isStoredData = isStoredData;
     }
 
+    /**
+     * 文字列に変換します。
+     *
+     * @return 文字列
+     */
     public String toString(){
       final StringBuilder builder = new StringBuilder();
         builder.append("acc:(");
@@ -170,6 +180,15 @@ public class OrpheSensorValue {
     }
 
 
+    /**
+     * バイト配列から[OrpheSensorValue]を取得します。
+     *
+     * @param bytes ORPHECOREから送られたバイト配列
+     * @param sidePosition 取り付け位置
+     * @param accRange 加速度レンジ
+     * @param gyroRange ジャイロレンジ
+     * @return OrpheSensorValueの配列
+     */
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static OrpheSensorValue[] fromBytes(
             byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange) throws Exception {
@@ -275,87 +294,189 @@ public class OrpheSensorValue {
         return new OrpheSensorValue[0];
     }
 
-    /// 取り付け位置。
+    /**
+     *  取り付け位置。
+     */
     @NonNull
     final OrpheSidePosition sidePosition;
 
-    /// シリアルナンバー
+    /**
+     * シリアルナンバー
+     */
     @NonNull final int serialNumber;
 
-    /// 同じデータ中の位置
+    /**
+     * 同じデータ中の位置
+     */
     @NonNull final int dataPosition;
 
-    /// タイムスタンプ
+    /**
+     * 開始日時のタイムスタンプ（ナノ秒）
+     */
     @NonNull final long startTime;
 
+    /**
+     * 終了日時のタイムスタンプ（ナノ秒）
+     */
     final long endTime;
 
-    /// クオータニオン
+    /**
+     * クオータニオンX
+     */
     @NonNull final double quatX;
+    /**
+     * クオータニオンY
+     */
     @NonNull final double quatY;
+    /**
+     * クオータニオンZ
+     */
     @NonNull final double quatZ;
+    /**
+     * クオータニオンW
+     */
     @NonNull final double quatW;
 
-    /// オイラー角
+    /**
+     * オイラー角X
+     */
     @NonNull final double eulerX;
+    /**
+     * オイラー角Y
+     */
     @NonNull final double eulerY;
+    /**
+     * オイラー角Z
+     */
     @NonNull final double eulerZ;
 
-    /// 加速度
+    /**
+     * 加速度X
+     */
     @NonNull final double accX;
+    /**
+     * 加速度Y
+     */
     @NonNull final double accY;
+    /**
+     * 加速度Z
+     */
     @NonNull final double accZ;
 
-    /// ジャイロによる角度の範囲
+    /**
+     * ジャイロによる角度X
+     */
     @NonNull final double gyroX;
+    /**
+     * ジャイロによる角度Y
+     */
     @NonNull final double gyroY;
+    /**
+     * ジャイロによる角度Z
+     */
     @NonNull final double gyroZ;
 
-    /// 重力加速度
+    /**
+     * 重力加速度X
+     */
+    ///
     @NonNull final double accOfGravityX;
+    /**
+     * 重力加速度Y
+     */
     @NonNull final double accOfGravityY;
+    /**
+     * 重力加速度Z
+     */
     @NonNull final double accOfGravityZ;
 
 
-    /// 正規化されたオイラー角
+    /**
+     * 正規化されたオイラー角X
+     */
     @NonNull final double normalizedEulerX;
+    /**
+     * 正規化されたオイラー角Y
+     */
     @NonNull final double normalizedEulerY;
+    /**
+     * 正規化されたオイラー角Z
+     */
     @NonNull final double normalizedEulerZ;
 
-    /// 正規化された加速度
+    /**
+     * 正規化された加速度X
+     */
     @NonNull final double normalizedAccX;
+    /**
+     * 正規化された加速度Y
+     */
     @NonNull final double normalizedAccY;
+    /**
+     * 正規化された加速度Z
+     */
     @NonNull final double normalizedAccZ;
 
-    /// 正規化されたジャイロによる角度の範囲
+    /**
+     * 正規化されたジャイロによる角度X
+     */
     @NonNull  final double normalizedGyroX;
+    /**
+     * 正規化されたジャイロによる角度Y
+     */
     @NonNull final double normalizedGyroY;
+    /**
+     * 正規化されたジャイロによる角度Z
+     */
     @NonNull final double normalizedGyroZ;
 
-    /// 正規化された磁力
+    /**
+     * 正規化された磁力
+     */
     @NonNull final double normalizedMag;
 
-    /// 正規化された世界座標系の加速度
+    /**
+     * 正規化された世界座標系の加速度X
+     */
     @NonNull final double normalizedWorldCoordinateAccX;
+    /**
+     * 正規化された世界座標系の加速度Y
+     */
     @NonNull  final double normalizedWorldCoordinateAccY;
+    /**
+     * 正規化された世界座標系の加速度Z
+     */
     @NonNull final double normalizedWorldCoordinateAccZ;
 
-    /// 磁力
+    /**
+     * 磁力
+     */
+    ///
     @NonNull final double mag;
 
-    /// 衝撃値
+    /**
+     * 衝撃値
+     */
     @NonNull final int shock;
 
-    /// 正規化された衝撃値
+    /**
+     * 正規化された衝撃値
+     */
     @NonNull final double normalizedShock;
 
-    /// 30秒保持の再送処理を行ったかどうか
+    /**
+     * 30秒保持の再送処理を行ったかどうか
+     */
     @NonNull final boolean isResendData;
 
-    /// ドロップしたフレーム数
+    /**
+     * ドロップしたフレーム数
+     */
     @NonNull final int dropNum;
 
-    /// 30秒保持でデータ取得を行ったかどうか
+    /**
+     * 30秒保持でデータ取得を行ったかどうか
+     */
     @NonNull final boolean isStoredData;
 
 

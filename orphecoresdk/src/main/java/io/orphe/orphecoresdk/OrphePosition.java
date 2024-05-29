@@ -1,5 +1,8 @@
 package io.orphe.orphecoresdk;
 
+/**
+ * ORPHE COREの取り付け位置
+ */
 public enum OrphePosition {
     /// 足底
     plantar,
@@ -10,7 +13,11 @@ public enum OrphePosition {
     /// 両方
     both;
 
-    /// 逆の位置を取得します。
+    /**
+     * 逆の位置を取得します。
+     *
+     * @return ORPHE COREの取り付け位置
+     */
     OrphePosition  other() {
         switch (this) {
             case plantar:
@@ -23,7 +30,13 @@ public enum OrphePosition {
         return null;
     }
 
-    /// 位置を元に[OrpheSidePosition]を返します。
+    /**
+     * [OrpheSide]を渡して[OrpheSidePosition]を返します。
+     *
+     * @param side 左右の位置
+     * @return [OrpheSidePosition]を返します。
+     * @throws Exception [both]が設定されている場合はエラー。
+     */
     OrpheSidePosition side(OrpheSide side) throws Exception {
         switch (side) {
             case left:
