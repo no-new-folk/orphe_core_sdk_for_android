@@ -207,9 +207,7 @@ public class Orphe {
         if(mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting){
             return;
         }
-        if(mStatus == OrpheCoreStatus.scanned) {
-            mBluetoothLeScanner.stopScan(scanCallback);
-        }
+        mBluetoothLeScanner.stopScan(scanCallback);
         if (mBluetoothGatt != null && mBluetoothGatt.getDevice().equals(device)) {
             Log.d(TAG, "BluetoothGatt already exists, try to connect");
             mStatus = OrpheCoreStatus.connecting;
@@ -231,6 +229,7 @@ public class Orphe {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
+            final String deviceName = device.getName();
             Log.d(TAG, "onScanResult:" + device.getName());
             if (device.getName().contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
@@ -259,7 +258,7 @@ public class Orphe {
                         () -> {
                             mStatus = OrpheCoreStatus.none;
                             mOrpheCallback.onDisconnect(gatt.getDevice());
-                            mBluetoothLeScanner.startScan(scanCallback);
+                            startScan();
                         }
                 );
             }

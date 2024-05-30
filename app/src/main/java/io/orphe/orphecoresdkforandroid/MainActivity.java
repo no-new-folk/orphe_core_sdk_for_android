@@ -173,26 +173,22 @@ public class MainActivity extends AppCompatActivity {
         changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
         mConnectButtonLeft.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheLeft.status();
-            if(status == OrpheCoreStatus.none){
-                mConnectionStatusTextViewLeft.setText("機器をスキャン中");
-                mOrpheLeft.startScan();
-            } else if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
+            if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
                 mOrpheLeft.connect(mFoundDeviceLeft);
             } else if(status == OrpheCoreStatus.connected){
                 mOrpheLeft.disconnect();
             }
         });
         mConnectButtonRight.setOnClickListener(v -> {
-            final OrpheCoreStatus status = mOrpheRight.status();
-            if(status == OrpheCoreStatus.none){
-                mConnectionStatusTextViewLeft.setText("機器をスキャン中");
-                mOrpheRight.startScan();
-            } else if(status == OrpheCoreStatus.scanned && mFoundDeviceRight != null){
+            final OrpheCoreStatus status = mOrpheRight.status();           
+            if(status == OrpheCoreStatus.scanned && mFoundDeviceRight != null){
                 mOrpheRight.connect(mFoundDeviceRight);
             } else if(status == OrpheCoreStatus.connected){
                 mOrpheRight.disconnect();
             }
         });
+        mOrpheLeft.startScan();
+        mOrpheRight.startScan();
     }
 
 
