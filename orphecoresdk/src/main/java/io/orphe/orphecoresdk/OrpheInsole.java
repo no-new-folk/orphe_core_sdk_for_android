@@ -29,30 +29,20 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * ORPHE COREを管理します。
+ * ORPHE INSOLEを管理します。
  * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
  * [disconnect]で切断します。
  */
-public class Orphe {
-    private static final String TAG = Orphe.class.getSimpleName();
+public class OrpheInsole {
+    private static final String TAG = OrpheInsole.class.getSimpleName();
     private static final long SCAN_PERIOD = 20000; // スキャンの期間（ミリ秒）
     private final Context mContext;
-    private final OrpheCoreCallback mOrpheCallback;
+    private final OrpheInsoleCallback mOrpheCallback;
     private BluetoothLeScanner mBluetoothLeScanner;
     private BluetoothDevice mBluetoothDevice;
     private BluetoothGatt mBluetoothGatt;
     private final Handler mHandler = new Handler();
     public final OrpheSidePosition sidePosition;
-
-    /**
-     * 加速度レンジ
-     */
-    public final OrpheAccRange accRange;
-
-    /**
-     * ジャイロレンジ
-     */
-    public final OrpheGyroRange gyroRange;
 
     /**
      * 現在の接続ステータスを返します。
@@ -93,22 +83,18 @@ public class Orphe {
 
 
     /**
-     * ORPHE COREを管理します。
+     * ORPHE INSOLEを管理します。
      * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
      * [disconnect]で切断します。
      *
      * @param context コンテキスト
      * @param orpheCallback コールバック引数
      * @param sidePosition この[Orphe]に対応する取り付け位置
-     * @param accRange 加速度レンジの設定
-     * @param gyroRange ジャイロレンジの設定
      */
-    public Orphe(@NonNull final Context context, @NonNull final OrpheCoreCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
-        this.accRange = accRange;
-        this.gyroRange = gyroRange;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -121,18 +107,6 @@ public class Orphe {
         mBluetoothDevice = null;
     }
 
-    /**
-     * ORPHE COREを管理します。
-     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
-     * [disconnect]で切断します。
-     *
-     * @param context コンテキスト
-     * @param orpheCallback コールバック引数
-     * @param sidePosition この[Orphe]に対応する取り付け位置
-     */
-    public Orphe(@NonNull final Context context, @NonNull final OrpheCoreCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
-        this(context, orpheCallback, sidePosition, OrpheAccRange.range16, OrpheGyroRange.range2000);
-    }
 
     /**
      * ORPHE COREのスキャンを開始します。
@@ -454,7 +428,7 @@ public class Orphe {
                 mainHandler.post(
                         () -> {
                             try {
-                                mOrpheCallback.gotSensorValues(OrpheSensorValue.fromBytes(value, sidePosition, accRange, gyroRange));
+                                mOrpheCallback.gotInsoleValues(OrpheInsoleValue.fromBytes(value, sidePosition));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }

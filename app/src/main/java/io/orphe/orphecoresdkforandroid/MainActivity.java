@@ -18,6 +18,9 @@ import androidx.appcompat.app.AppCompatActivity;
 import io.orphe.orphecoresdk.Orphe;
 import io.orphe.orphecoresdk.OrpheCallback;
 import io.orphe.orphecoresdk.OrpheCoreStatus;
+import io.orphe.orphecoresdk.OrpheInsole;
+import io.orphe.orphecoresdk.OrpheInsoleCallback;
+import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
@@ -31,18 +34,18 @@ public class MainActivity extends AppCompatActivity {
     private TextView mValueResultViewLeft;
     private TextView mConnectionStatusTextViewRight;
     private TextView mValueResultViewRight;
-    private Orphe mOrpheLeft;
-    private Orphe mOrpheRight;
+    private OrpheInsole mOrpheLeft;
+    private OrpheInsole mOrpheRight;
 
     private BluetoothDevice mFoundDeviceLeft;
     private BluetoothDevice mFoundDeviceRight;
 
-    private final OrpheCallback mOrpheCallbackLeft = new OrpheCallback() {
+    private final OrpheInsoleCallback mOrpheCallbackLeft = new OrpheInsoleCallback() {
         @Override
-        public void gotSensorValues(OrpheSensorValue[] values) {
-            if (values != null && values.length > 0) {
+        public void gotInsoleValue(OrpheInsoleValue value) {
+            if (value != null) {
                 if (mValueResultViewLeft != null) {
-                    mValueResultViewLeft.setText(values[0].toString());
+                    mValueResultViewLeft.setText(value.toString());
                 }
             }
         }
@@ -86,12 +89,12 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    private final OrpheCallback mOrpheCallbackRight = new OrpheCallback() {
+    private final OrpheInsoleCallback mOrpheCallbackRight = new OrpheInsoleCallback() {
         @Override
-        public void gotSensorValues(OrpheSensorValue[] values) {
-            if (values != null && values.length > 0) {
+        public void gotInsoleValue(OrpheInsoleValue value) {
+            if (value != null) {
                 if (mValueResultViewRight != null) {
-                    mValueResultViewRight.setText(values[0].toString());
+                    mValueResultViewRight.setText(value.toString());
                 }
             }
         }
@@ -167,8 +170,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mPermissionGranted = true;
         }
-        mOrpheLeft = new Orphe(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
-        mOrpheRight = new Orphe(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
+        mOrpheLeft = new OrpheInsole(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
+        mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
         changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
         changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
         mConnectButtonLeft.setOnClickListener(v -> {

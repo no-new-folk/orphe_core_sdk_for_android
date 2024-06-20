@@ -221,12 +221,12 @@ public class OrpheSensorValue {
                     getUint8(bytes,5),
                     getUint8(bytes,6) * 1000
                     );
-            for (int s = 0; s < 4; s++) {
+            for (int s = 3; s >= 0; s--) {
                 index = s * 21 + 8;
                 final long duration = s == 0
                         ? 0
                         : getUint8(bytes, index - 1) * 1000;
-                final LocalDateTime timestamp = baseTimestamp.plusNanos (duration);
+                final LocalDateTime timestamp = baseTimestamp.minusNanos (duration);
                 final double quatW = parseInt(bytes,index) / 16384.0;
                 final double quatX =  parseInt(bytes,index + 2) / 16384.0;
                 final double quatY = parseInt(bytes,index + 4) / 16384.0;
