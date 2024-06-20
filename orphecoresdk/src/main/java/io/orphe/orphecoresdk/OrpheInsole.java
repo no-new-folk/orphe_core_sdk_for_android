@@ -428,7 +428,7 @@ public class OrpheInsole {
                 mainHandler.post(
                         () -> {
                             try {
-                                mOrpheCallback.gotInsoleValues(OrpheInsoleValue.fromBytes(value, sidePosition));
+                                mOrpheCallback.gotInsoleValue(OrpheInsoleValue.fromBytes(value, sidePosition));
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
