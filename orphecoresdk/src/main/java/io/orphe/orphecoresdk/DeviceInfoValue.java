@@ -31,6 +31,7 @@ public class DeviceInfoValue {
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static DeviceInfoValue fromBytes(
             byte[] bytes) throws Exception {
+      System.out.println(bytes.length);
         return new DeviceInfoValue(
                 OrpheBatteryStatus.fromValue(getUint8(bytes, 0)),
                 OrpheSidePosition.fromValue(getUint8(bytes, 1)),
@@ -43,14 +44,14 @@ public class DeviceInfoValue {
         );
     }
 
-    final OrpheBatteryStatus batteryStatus;
-    final OrpheSidePosition sidePosition;
-    final OrpheLogRecordingMode logRecordingMode;
-    final boolean autoRecording;
-    final OrpheLedBrightness ledBrightness;
-    final int logDuration;
-    final OrpheAccRange accRange;
-    final OrpheGyroRange gyroRange;
+    public final OrpheBatteryStatus batteryStatus;
+    public final OrpheSidePosition sidePosition;
+    public final OrpheLogRecordingMode logRecordingMode;
+    public final boolean autoRecording;
+    public final OrpheLedBrightness ledBrightness;
+    public final int logDuration;
+    public final OrpheAccRange accRange;
+    public final OrpheGyroRange gyroRange;
 
 
     private static int parseInt(@NonNull byte[] bytes,  int index) {

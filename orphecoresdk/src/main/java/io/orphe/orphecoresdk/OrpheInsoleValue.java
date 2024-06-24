@@ -31,20 +31,20 @@ public class OrpheInsoleValue {
                           final long endTime,
 
                           /// 圧力の値
-                          @NonNull final double pressure1,
-                          @NonNull final double pressure2,
-                          @NonNull final double pressure3,
-                          @NonNull final double pressure4
+                          @NonNull final double pressureOutside,
+                          @NonNull final double pressureTop,
+                          @NonNull final double pressureInside,
+                          @NonNull final double pressureBottom
                      ){
       this.sidePosition = sidePosition;
       this.serialNumber = serialNumber;
       this.dataPosition = dataPosition;
       this.startTime = startTime;
       this.endTime = endTime;
-      this.pressure1 = pressure1;
-      this.pressure2 = pressure2;
-      this.pressure3 = pressure3;
-      this.pressure4 = pressure4;
+      this.pressureOutside = pressureOutside;
+      this.pressureTop = pressureTop;
+      this.pressureInside = pressureInside;
+      this.pressureBottom = pressureBottom;
     }
 
     /**
@@ -55,13 +55,13 @@ public class OrpheInsoleValue {
     public String toString(){
       final StringBuilder builder = new StringBuilder();
         builder.append("pressure:(");
-        builder.append(String.format("%.2f", pressure1));
+        builder.append(String.format("%.2f", pressureOutside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure2));
+        builder.append(String.format("%.2f", pressureInside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure3));
+        builder.append(String.format("%.2f", pressureTop));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure4));
+        builder.append(String.format("%.2f", pressureBottom));
         builder.append(")\n");
         return builder.toString();
     }
@@ -89,10 +89,10 @@ public class OrpheInsoleValue {
                 getUint8(bytes, 5),
                 getUint16(bytes, 6) * 1000
         );
-        final double pressure1 = parseInt(bytes, 8);
-        final double pressure2 = parseInt(bytes, 10);
-        final double pressure3 = parseInt(bytes, 12);
-        final double pressure4 = parseInt(bytes, 14);
+        final double pressureOutside = parseInt(bytes, 8);
+        final double pressureTop = parseInt(bytes, 10);
+        final double pressureInside = parseInt(bytes, 12);
+        final double pressureBottom = parseInt(bytes, 14);
         final LocalDateTime timestamp = baseTimestamp;
         return new OrpheInsoleValue(
                 sidePosition,
@@ -100,10 +100,10 @@ public class OrpheInsoleValue {
                 0,
                 timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                 timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                pressure1,
-                pressure2,
-                pressure3,
-                pressure4
+                pressureOutside,
+                pressureTop,
+                pressureInside,
+                pressureBottom
         );
     }
 
@@ -111,44 +111,44 @@ public class OrpheInsoleValue {
      *  取り付け位置。
      */
     @NonNull
-    final OrpheSidePosition sidePosition;
+    public final OrpheSidePosition sidePosition;
 
     /**
      * シリアルナンバー
      */
-    @NonNull final int serialNumber;
+    @NonNull public final int serialNumber;
 
     /**
      * 同じデータ中の位置
      */
-    @NonNull final int dataPosition;
+    @NonNull public final int dataPosition;
 
     /**
      * 開始日時のタイムスタンプ（ナノ秒）
      */
-    @NonNull final long startTime;
+    @NonNull public final long startTime;
 
     /**
      * 終了日時のタイムスタンプ（ナノ秒）
      */
-    final long endTime;
+    public final long endTime;
 
     /**
      * クオータニオンX
      */
-    @NonNull final double pressure1;
+    @NonNull public final double pressureOutside;
     /**
      * クオータニオンY
      */
-    @NonNull final double pressure2;
+    @NonNull public final double pressureTop;
     /**
      * クオータニオンZ
      */
-    @NonNull final double pressure3;
+    @NonNull public final double pressureInside;
     /**
      * クオータニオンW
      */
-    @NonNull final double pressure4;
+    @NonNull public final double pressureBottom;
 
     private static int parseInt(@NonNull byte[] bytes,  int index) {
         return (int)((getInt8(bytes, index) << 8) + getInt8(bytes, index + 1));
