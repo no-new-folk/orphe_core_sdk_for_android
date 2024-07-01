@@ -35,6 +35,11 @@ public enum OrpheLedBrightness {
     /// 10進数を元に[OrpheLedBrightness]を返します。
     static OrpheLedBrightness fromValue(int value) {
         OrpheLedBrightness[] values = OrpheLedBrightness.values();
-        return values[value];
+        for(OrpheLedBrightness val : values ) {
+            if(val.value() == value){
+                return val;
+            }
+        }
+        return OrpheLedBrightness.off;
     }
 }

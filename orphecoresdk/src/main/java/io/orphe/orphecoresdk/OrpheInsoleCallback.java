@@ -4,12 +4,19 @@ import android.bluetooth.BluetoothDevice;
 
 import java.util.UUID;
 
-
 /**
- * ORPHE COREに対するコールバックを指定します。これを定義してOrpheオブジェクトを作成するときに渡します。
+ * ORPHE INSOLEに対するコールバックを指定します。これを定義してOrpheオブジェクトを作成するときに渡します。
  */
-public interface OrpheCallback {
+public abstract class OrpheInsoleCallback implements OrpheCallback {
 
+    /**
+     * インソールの値がNotifyで取得されたときのコールバック。
+     *
+     * @param insoleValue １回のNotifyで送られたインソールの値が入ります。
+      */
+    public void gotInsoleValue(OrpheInsoleValue insoleValue) {
+
+    }
 
     /**
      * ORPHE COREのDeviceInfoが取得されたときのコールバック。
@@ -17,40 +24,50 @@ public interface OrpheCallback {
      *
      * @param deviceInfo 取得されたDeviceInfoの値。
      */
-    void gotDeviceInfo(DeviceInfoValue deviceInfo);
+    public void gotDeviceInfo(DeviceInfoValue deviceInfo) {
+
+    }
 
     /**
      * スキャンされたときのコールバック。
      *
      * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。
      */
-    void onScan(BluetoothDevice bluetoothDevice);
+    public void onScan(BluetoothDevice bluetoothDevice) {
+    }
 
     /**
      * 接続されたときのコールバック。
      *
      * @param bluetoothDevice 接続されたBluetoothDeviceが渡されます。
      */
-    void onConnect(BluetoothDevice bluetoothDevice);
+    public void onConnect(BluetoothDevice bluetoothDevice) {
+    }
 
     /**
      * 切断されたときのコールバック。
      *
      * @param bluetoothDevice 切断されたBluetoothDeviceが渡されます。
      */
-    void onDisconnect(BluetoothDevice bluetoothDevice);
+    public void onDisconnect(BluetoothDevice bluetoothDevice) {
+
+    }
 
     /**
      * Notifyの取得が開始されたときのコールバック。
      *
      * @param characteristicUuid 対応するNotifyのキャラクタリスティックUUID。
      */
-    void onStartNotify(UUID characteristicUuid);
+    public void onStartNotify(UUID characteristicUuid) {
+
+    }
 
     /**
      * Notifyの取得が終了したときのコールバック。
      *
      * @param characteristicUuid 対応するNotifyのキャラクタリスティックUUID。
      */
-    void onStopNotify(UUID characteristicUuid);
+    public void onStopNotify(UUID characteristicUuid) {
+
+    }
 }

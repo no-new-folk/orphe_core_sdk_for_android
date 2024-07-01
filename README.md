@@ -25,6 +25,8 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 ## 利用方法
 
+### 事前準備
+
 ※`app/src/main/java/MainActivity.java`にサンプルコードが記載されています。
 
 - パーミッションの確認と必要であればリクエストを行います。Androidのバージョンによって位置情報の権限が必要な場合とBluetooth系の権限が必要な場合があります。
@@ -48,13 +50,21 @@ ORPHE COREに接続するためのJava SDKを提供します。
     }
     ```
 
-- `OrpheCallback`オブジェクトを作成します。この中にORPHE COREの各イベントに対しての動作を記述します。
+
+### ORPHE INSOLEの場合
+
+- `OrpheInsoleCallback`オブジェクトを作成します。この中にORPHE COREの各イベントに対しての動作を記述します。
 
     ```
-    private final OrpheCallback mOrpheCallback = new OrpheCallback() {
+    private final OrpheInsoleCallback mOrpheInsoleCallback = new OrpheInsoleCallback() {
         @Override
-        public void gotSensorValues(OrpheSensorValue[] values) {
-            Log.d(TAG, values[0].toString());
+        public void gotInsoleValue(OrpheInsoleValue value) {
+            Log.d(TAG, value.toString());
+        }
+
+        @Override
+        public void gotDeviceInfo(DeviceInfoValue value) {
+            Log.d(TAG, (value.batteryStatus.name());
         }
 
         @SuppressLint("MissingPermission")
@@ -87,10 +97,100 @@ ORPHE COREに接続するためのJava SDKを提供します。
     };
     ```
 
-- 作成した`OrpheCallback`と対応する取り付け位置（[OrpheSidePosition.leftPlanter]など）を指定して`Orphe`オブジェクトを作成します。
+- 作成した`OrpheInsoleCallback`と対応する取り付け位置（[OrpheSidePosition.leftPlanter]など）を指定して`OrpheInsole`オブジェクトを作成します。
 
     ```
-    mOrphe = new Orphe(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
+    mOrpheInsole = new OrpheInsole(this, mOrpheInsoleCallbackLeft, OrpheSidePosition.leftPlantar);
+    ```
+
+- 作成した`OrpheInsole`オブジェクトの`startScan`を呼び出します。
+
+    ```
+    mOrpheInsole.startScan();
+    ```
+
+- ORPHE INSOLEのリセットボタンを押し光らせます。
+    - 光った場合はアドバタイズしている状態になります。
+
+- `OrpheInsoleCallback`の`onScan`に見つかったアドバタイズ中のORPHE INSOLEの`BluetoothDevice`オブジェクトが渡されます。
+
+- `OrpheInsoleCallback`の`onScan`で渡された`BluetoothDevice`を`OrpheInsole`オブジェクトの`connect`に渡すことで接続されます。
+    ```
+    mOrpheInsole.connect(mBluetoothDevice);
+    ```
+
+- 接続後`OrpheInsoleCallback`の`onConnect`のコールバックが呼び出されます。
+
+- またセンサー値のNotifyが有効になり、`OrpheInsoleCallback`の`gotInsoleValue`に各Notifyごとで送信されたセンサー値が渡されます。
+
+    - Notifyは50Hzで送られており各圧力センサー値を取得することができます。
+    - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
+
+- 作成した`OrpheInsole`オブジェクトの`disconnect`を呼び出すことで切断します。
+
+    ```
+    mOrpheInsole.disconnect();
+    ```
+
+- 作成した`OrpheInsole`オブジェクトの`status`で現在の接続ステータスを把握することが可能です。
+
+- 作成した`OrpheInsole`オブジェクトの`getDeviceInfo`を呼び出すことでバッテリー情報を含むORPHE INSOLEの情報を取得することができます。取得した値は`OrpheInsoleCallback`の`gotDeviceInfo`に渡されます。
+
+    ```
+    mOrpheInsole.getDeviceInfo();
+    ```
+
+
+### ORPHE COREの場合
+
+- `OrpheCallback`オブジェクトを作成します。この中にORPHE COREの各イベントに対しての動作を記述します。
+
+    ```
+    private final OrpheCoreCallback mOrpheCoreCallback = new OrpheCoreCallback() {
+        @Override
+        public void gotSensorValues(OrpheSensorValue[] values) {
+            Log.d(TAG, values[0].toString());
+        }
+
+        @Override
+        public void gotDeviceInfo(DeviceInfoValue value) {
+            Log.d(TAG, (value.batteryStatus.name());
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onScan(BluetoothDevice bluetoothDevice) {
+            if (mConnectionStatusTextViewLeft != null) {
+                if (bluetoothDevice != null) {
+                    Log.d(TAG, String.format("%s：機器が見つかりました", bluetoothDevice.getName()));
+                } else {
+                    Log.d(TAG, "機器が見つかりませんでした");
+                }
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onConnect(BluetoothDevice bluetoothDevice) {
+            if (mConnectionStatusTextViewLeft != null) {
+                Log.d(TAG, String.format("%s：機器に接続されました", bluetoothDevice.getName()));
+            }
+        }
+
+        @SuppressLint("MissingPermission")
+        @Override
+        public void onDisconnect(BluetoothDevice bluetoothDevice) {
+            if (mConnectionStatusTextViewLeft != null) {
+                Log.d(TAG, String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
+            }
+        }
+    };
+    ```
+
+- 作成した`OrpheCoreCallback`と対応する取り付け位置（[OrpheSidePosition.leftPlanter]など）を指定して`Orphe`オブジェクトを作成します。
+
+    ```
+    mOrphe = new Orphe(this, mOrpheCoreCallbackLeft, OrpheSidePosition.leftPlantar);
     ```
 
 - 作成した`Orphe`オブジェクトの`startScan`を呼び出します。
@@ -102,16 +202,16 @@ ORPHE COREに接続するためのJava SDKを提供します。
 - ORPHE COREを振り光らせます。
     - 光った場合はアドバタイズしている状態になります。
 
-- `OrpheCallback`の`onScan`に見つかったアドバタイズ中のORPHE COREの`BluetoothDevice`オブジェクトが渡されます。
+- `OrpheCoreCallback`の`onScan`に見つかったアドバタイズ中のORPHE COREの`BluetoothDevice`オブジェクトが渡されます。
 
-- `OrpheCallback`の`onScan`で渡された`BluetoothDevice`を`Orphe`オブジェクトの`connect`に渡すことで接続されます。
+- `OrpheCoreCallback`の`onScan`で渡された`BluetoothDevice`を`Orphe`オブジェクトの`connect`に渡すことで接続されます。
     ```
     mOrphe.connect(mBluetoothDevice);
     ```
 
-- 接続後`OrpheCallback`の`onConnect`のコールバックが呼び出されます。
+- 接続後`OrpheCoreCallback`の`onConnect`のコールバックが呼び出されます。
 
-- またセンサー値のNotifyが有効になり、`OrpheCallback`の`gotSensorValues`に各Notifyごとで送信されたセンサー値が渡されます。（１度のNotifyで最大4つのセンサー値が渡されます）
+- またセンサー値のNotifyが有効になり、`OrpheCoreCallback`の`gotSensorValues`に各Notifyごとで送信されたセンサー値が渡されます。（１度のNotifyで最大4つのセンサー値が渡されます）
 
     - Notifyは50Hzで送られており4つのセンサー値を送ることで最大200Hzのセンサー値を取得することができます。
     - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
@@ -123,6 +223,12 @@ ORPHE COREに接続するためのJava SDKを提供します。
     ```
 
 - 作成した`Orphe`オブジェクトの`status`で現在の接続ステータスを把握することが可能です。
+
+- 作成した`Orphe`オブジェクトの`getDeviceInfo`を呼び出すことでバッテリー情報を含むORPHE COREの情報を取得することができます。取得した値は`OrpheCoreCallback`の`gotDeviceInfo`に渡されます。
+
+    ```
+    mOrphe.getDeviceInfo();
+    ```
 
 
 ## 変更要望や質問について

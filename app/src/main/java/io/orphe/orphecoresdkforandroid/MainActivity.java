@@ -15,9 +15,14 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 
+import io.orphe.orphecoresdk.DeviceInfoValue;
 import io.orphe.orphecoresdk.Orphe;
+import io.orphe.orphecoresdk.OrpheBatteryStatus;
 import io.orphe.orphecoresdk.OrpheCallback;
 import io.orphe.orphecoresdk.OrpheCoreStatus;
+import io.orphe.orphecoresdk.OrpheInsole;
+import io.orphe.orphecoresdk.OrpheInsoleCallback;
+import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
@@ -31,19 +36,30 @@ public class MainActivity extends AppCompatActivity {
     private TextView mValueResultViewLeft;
     private TextView mConnectionStatusTextViewRight;
     private TextView mValueResultViewRight;
-    private Orphe mOrpheLeft;
-    private Orphe mOrpheRight;
+    private OrpheInsole mOrpheLeft;
+    private OrpheInsole mOrpheRight;
+
+    private Button mGetDeviceInfoButtonLeft;
+    private Button mGetDeviceInfoButtonRight;
+    private TextView mBatteryStatusTextViewLeft;
+    private TextView mBatteryStatusTextViewRight;
 
     private BluetoothDevice mFoundDeviceLeft;
     private BluetoothDevice mFoundDeviceRight;
 
-    private final OrpheCallback mOrpheCallbackLeft = new OrpheCallback() {
+    private final OrpheInsoleCallback mOrpheCallbackLeft = new OrpheInsoleCallback() {
         @Override
-        public void gotSensorValues(OrpheSensorValue[] values) {
-            if (values != null && values.length > 0) {
+        public void gotInsoleValue(OrpheInsoleValue value) {
+            if (value != null) {
                 if (mValueResultViewLeft != null) {
-                    mValueResultViewLeft.setText(values[0].toString());
+                    mValueResultViewLeft.setText(value.toString());
                 }
+            }
+        }
+
+        public void gotDeviceInfo(DeviceInfoValue value){
+            if(mBatteryStatusTextViewLeft != null) {
+                mBatteryStatusTextViewLeft.setText(value.batteryStatus.name());
             }
         }
 
@@ -69,6 +85,7 @@ public class MainActivity extends AppCompatActivity {
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
                 changeButtonState(mConnectButtonLeft, OrpheCoreStatus.connected);
+                changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -79,6 +96,7 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
                 changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
+                changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.none);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -86,13 +104,19 @@ public class MainActivity extends AppCompatActivity {
     };
 
 
-    private final OrpheCallback mOrpheCallbackRight = new OrpheCallback() {
+    private final OrpheInsoleCallback mOrpheCallbackRight = new OrpheInsoleCallback() {
         @Override
-        public void gotSensorValues(OrpheSensorValue[] values) {
-            if (values != null && values.length > 0) {
+        public void gotInsoleValue(OrpheInsoleValue value) {
+            if (value != null) {
                 if (mValueResultViewRight != null) {
-                    mValueResultViewRight.setText(values[0].toString());
+                    mValueResultViewRight.setText(value.toString());
                 }
+            }
+        }
+
+        public void gotDeviceInfo(DeviceInfoValue value){
+            if(mBatteryStatusTextViewRight != null) {
+                mBatteryStatusTextViewRight.setText(value.batteryStatus.name());
             }
         }
 
@@ -118,6 +142,7 @@ public class MainActivity extends AppCompatActivity {
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
                 changeButtonState(mConnectButtonRight, OrpheCoreStatus.connected);
+                changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -128,6 +153,7 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
                 changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
+                changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.none);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -145,11 +171,18 @@ public class MainActivity extends AppCompatActivity {
         mValueResultViewLeft = findViewById(R.id.text_value_result_left);
         mConnectionStatusTextViewRight = findViewById(R.id.text_connection_status_right);
         mValueResultViewRight = findViewById(R.id.text_value_result_right);
+        mGetDeviceInfoButtonLeft = findViewById(R.id.get_device_info_left);
+        mGetDeviceInfoButtonRight = findViewById(R.id.get_device_info_right);
+        mBatteryStatusTextViewLeft = findViewById(R.id.battery_status_left);
+        mBatteryStatusTextViewRight = findViewById(R.id.battery_status_right);
 
         mConnectionStatusTextViewLeft.setText("NoConnection");
         mConnectionStatusTextViewRight.setText("NoConnection");
         mValueResultViewLeft.setText("NoValue");
         mValueResultViewRight.setText("NoValue");
+
+        mBatteryStatusTextViewLeft.setText(OrpheBatteryStatus.unknown.name());
+        mBatteryStatusTextViewRight.setText(OrpheBatteryStatus.unknown.name());
 
         if (this.checkSelfPermission(Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
             mPermissionGranted = false;
@@ -167,10 +200,12 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mPermissionGranted = true;
         }
-        mOrpheLeft = new Orphe(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
-        mOrpheRight = new Orphe(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
+        mOrpheLeft = new OrpheInsole(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
+        mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
         changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
         changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
+        changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.none);
+        changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.none);
         mConnectButtonLeft.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheLeft.status();
             if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
@@ -185,6 +220,18 @@ public class MainActivity extends AppCompatActivity {
                 mOrpheRight.connect(mFoundDeviceRight);
             } else if(status == OrpheCoreStatus.connected){
                 mOrpheRight.disconnect();
+            }
+        });
+        mGetDeviceInfoButtonLeft.setOnClickListener(v -> {
+            final OrpheCoreStatus status = mOrpheLeft.status();
+            if(status == OrpheCoreStatus.connected){
+                mOrpheLeft.getDeviceInfo();
+            }
+        });
+        mGetDeviceInfoButtonRight.setOnClickListener(v -> {
+            final OrpheCoreStatus status = mOrpheRight.status();
+            if(status == OrpheCoreStatus.connected){
+                mOrpheRight.getDeviceInfo();
             }
         });
         mOrpheLeft.startScan();

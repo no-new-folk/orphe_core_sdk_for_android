@@ -221,12 +221,12 @@ public class OrpheSensorValue {
                     getUint8(bytes,5),
                     getUint8(bytes,6) * 1000
                     );
-            for (int s = 0; s < 4; s++) {
+            for (int s = 3; s >= 0; s--) {
                 index = s * 21 + 8;
                 final long duration = s == 0
                         ? 0
                         : getUint8(bytes, index - 1) * 1000;
-                final LocalDateTime timestamp = baseTimestamp.plusNanos (duration);
+                final LocalDateTime timestamp = baseTimestamp.minusNanos (duration);
                 final double quatW = parseInt(bytes,index) / 16384.0;
                 final double quatX =  parseInt(bytes,index + 2) / 16384.0;
                 final double quatY = parseInt(bytes,index + 4) / 16384.0;
@@ -303,181 +303,181 @@ public class OrpheSensorValue {
     /**
      * シリアルナンバー
      */
-    @NonNull final int serialNumber;
+    @NonNull public final int serialNumber;
 
     /**
      * 同じデータ中の位置
      */
-    @NonNull final int dataPosition;
+    @NonNull public final int dataPosition;
 
     /**
      * 開始日時のタイムスタンプ（ナノ秒）
      */
-    @NonNull final long startTime;
+    @NonNull public final long startTime;
 
     /**
      * 終了日時のタイムスタンプ（ナノ秒）
      */
-    final long endTime;
+    public final long endTime;
 
     /**
      * クオータニオンX
      */
-    @NonNull final double quatX;
+    @NonNull public final double quatX;
     /**
      * クオータニオンY
      */
-    @NonNull final double quatY;
+    @NonNull public final double quatY;
     /**
      * クオータニオンZ
      */
-    @NonNull final double quatZ;
+    @NonNull public final double quatZ;
     /**
      * クオータニオンW
      */
-    @NonNull final double quatW;
+    @NonNull public final double quatW;
 
     /**
      * オイラー角X
      */
-    @NonNull final double eulerX;
+    @NonNull public final double eulerX;
     /**
      * オイラー角Y
      */
-    @NonNull final double eulerY;
+    @NonNull public final double eulerY;
     /**
      * オイラー角Z
      */
-    @NonNull final double eulerZ;
+    @NonNull public final double eulerZ;
 
     /**
      * 加速度X
      */
-    @NonNull final double accX;
+    @NonNull public final double accX;
     /**
      * 加速度Y
      */
-    @NonNull final double accY;
+    @NonNull public final double accY;
     /**
      * 加速度Z
      */
-    @NonNull final double accZ;
+    @NonNull public final double accZ;
 
     /**
      * ジャイロによる角度X
      */
-    @NonNull final double gyroX;
+    @NonNull public final double gyroX;
     /**
      * ジャイロによる角度Y
      */
-    @NonNull final double gyroY;
+    @NonNull public final double gyroY;
     /**
      * ジャイロによる角度Z
      */
-    @NonNull final double gyroZ;
+    @NonNull public final double gyroZ;
 
     /**
      * 重力加速度X
      */
     ///
-    @NonNull final double accOfGravityX;
+    @NonNull public final double accOfGravityX;
     /**
      * 重力加速度Y
      */
-    @NonNull final double accOfGravityY;
+    @NonNull public final double accOfGravityY;
     /**
      * 重力加速度Z
      */
-    @NonNull final double accOfGravityZ;
+    @NonNull public final double accOfGravityZ;
 
 
     /**
      * 正規化されたオイラー角X
      */
-    @NonNull final double normalizedEulerX;
+    @NonNull public final double normalizedEulerX;
     /**
      * 正規化されたオイラー角Y
      */
-    @NonNull final double normalizedEulerY;
+    @NonNull public final double normalizedEulerY;
     /**
      * 正規化されたオイラー角Z
      */
-    @NonNull final double normalizedEulerZ;
+    @NonNull public final double normalizedEulerZ;
 
     /**
      * 正規化された加速度X
      */
-    @NonNull final double normalizedAccX;
+    @NonNull public final double normalizedAccX;
     /**
      * 正規化された加速度Y
      */
-    @NonNull final double normalizedAccY;
+    @NonNull public final double normalizedAccY;
     /**
      * 正規化された加速度Z
      */
-    @NonNull final double normalizedAccZ;
+    @NonNull public final double normalizedAccZ;
 
     /**
      * 正規化されたジャイロによる角度X
      */
-    @NonNull  final double normalizedGyroX;
+    @NonNull public final double normalizedGyroX;
     /**
      * 正規化されたジャイロによる角度Y
      */
-    @NonNull final double normalizedGyroY;
+    @NonNull public final double normalizedGyroY;
     /**
      * 正規化されたジャイロによる角度Z
      */
-    @NonNull final double normalizedGyroZ;
+    @NonNull public final double normalizedGyroZ;
 
     /**
      * 正規化された磁力
      */
-    @NonNull final double normalizedMag;
+    @NonNull public final double normalizedMag;
 
     /**
      * 正規化された世界座標系の加速度X
      */
-    @NonNull final double normalizedWorldCoordinateAccX;
+    @NonNull public final double normalizedWorldCoordinateAccX;
     /**
      * 正規化された世界座標系の加速度Y
      */
-    @NonNull  final double normalizedWorldCoordinateAccY;
+    @NonNull public final double normalizedWorldCoordinateAccY;
     /**
      * 正規化された世界座標系の加速度Z
      */
-    @NonNull final double normalizedWorldCoordinateAccZ;
+    @NonNull public final double normalizedWorldCoordinateAccZ;
 
     /**
      * 磁力
      */
     ///
-    @NonNull final double mag;
+    @NonNull public final double mag;
 
     /**
      * 衝撃値
      */
-    @NonNull final int shock;
+    @NonNull public final int shock;
 
     /**
      * 正規化された衝撃値
      */
-    @NonNull final double normalizedShock;
+    @NonNull public final double normalizedShock;
 
     /**
      * 30秒保持の再送処理を行ったかどうか
      */
-    @NonNull final boolean isResendData;
+    @NonNull public final boolean isResendData;
 
     /**
      * ドロップしたフレーム数
      */
-    @NonNull final int dropNum;
+    @NonNull public final int dropNum;
 
     /**
      * 30秒保持でデータ取得を行ったかどうか
      */
-    @NonNull final boolean isStoredData;
+    @NonNull public final boolean isStoredData;
 
 
     private static double toGravityX(

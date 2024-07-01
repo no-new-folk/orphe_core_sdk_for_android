@@ -25,6 +25,6 @@ public enum OrpheBatteryStatus {
      */
     static OrpheBatteryStatus fromValue(int value) {
         OrpheBatteryStatus[] values = OrpheBatteryStatus.values();
-        return values[value];
+        return values[value + 1];
     }
 }
