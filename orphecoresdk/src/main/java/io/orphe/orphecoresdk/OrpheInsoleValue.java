@@ -89,22 +89,41 @@ public class OrpheInsoleValue {
                 getUint8(bytes, 5),
                 getUint16(bytes, 6) * 1000
         );
-        final double pressureOutside = parseInt(bytes, 8);
-        final double pressureTop = parseInt(bytes, 10);
-        final double pressureInside = parseInt(bytes, 12);
-        final double pressureBottom = parseInt(bytes, 14);
         final LocalDateTime timestamp = baseTimestamp;
-        return new OrpheInsoleValue(
-                sidePosition,
-                serialNumber,
-                0,
-                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                pressureOutside,
-                pressureTop,
-                pressureInside,
-                pressureBottom
-        );
+        // 左右で逆になる
+        if(sidePosition.side == OrpheSide.left) {
+            final double pressureOutside = parseInt(bytes, 8);
+            final double pressureTop = parseInt(bytes, 10);
+            final double pressureInside = parseInt(bytes, 12);
+            final double pressureBottom = parseInt(bytes, 14);
+            return new OrpheInsoleValue(
+                    sidePosition,
+                    serialNumber,
+                    0,
+                    timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                    timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                    pressureOutside,
+                    pressureTop,
+                    pressureInside,
+                    pressureBottom
+            );
+        } else {
+            final double pressureInside = parseInt(bytes, 8);
+            final double pressureTop = parseInt(bytes, 10);
+            final double pressureOutside = parseInt(bytes, 12);
+            final double pressureBottom = parseInt(bytes, 14);
+            return new OrpheInsoleValue(
+                    sidePosition,
+                    serialNumber,
+                    0,
+                    timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                    timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                    pressureOutside,
+                    pressureTop,
+                    pressureInside,
+                    pressureBottom
+            );
+        }
     }
 
     /**
