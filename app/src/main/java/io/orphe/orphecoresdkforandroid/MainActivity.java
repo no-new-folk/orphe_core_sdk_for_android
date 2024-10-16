@@ -39,8 +39,8 @@ public class MainActivity extends AppCompatActivity {
     private OrpheInsole mOrpheLeft;
     private OrpheInsole mOrpheRight;
 
-    private Button mGetDeviceInfoButtonLeft;
-    private Button mGetDeviceInfoButtonRight;
+    private Button mGetLatestValueButtonLeft;
+    private Button mGetLatestValueButtonRight;
     private TextView mBatteryStatusTextViewLeft;
     private TextView mBatteryStatusTextViewRight;
 
@@ -49,10 +49,10 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheInsoleCallback mOrpheCallbackLeft = new OrpheInsoleCallback() {
         @Override
-        public void gotInsoleValue(OrpheInsoleValue value) {
-            if (value != null) {
+        public void gotInsoleValue(OrpheInsoleValue[] values) {
+            if (values != null) {
                 if (mValueResultViewLeft != null) {
-                    mValueResultViewLeft.setText(value.toString());
+                    mValueResultViewLeft.setText(values.toString());
                 }
             }
         }
@@ -66,6 +66,7 @@ public class MainActivity extends AppCompatActivity {
         @SuppressLint("MissingPermission")
         @Override
         public void onScan(BluetoothDevice bluetoothDevice) {
+
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
                     mFoundDeviceLeft = bluetoothDevice;
@@ -85,7 +86,7 @@ public class MainActivity extends AppCompatActivity {
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
                 changeButtonState(mConnectButtonLeft, OrpheCoreStatus.connected);
-                changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.connected);
+                changeButtonState(mGetLatestValueButtonLeft, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -96,7 +97,7 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewLeft != null) {
                 changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
-                changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.none);
+                changeButtonState(mGetLatestValueButtonLeft, OrpheCoreStatus.none);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -106,10 +107,10 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheInsoleCallback mOrpheCallbackRight = new OrpheInsoleCallback() {
         @Override
-        public void gotInsoleValue(OrpheInsoleValue value) {
-            if (value != null) {
+        public void gotInsoleValue(OrpheInsoleValue[] values) {
+            if (values != null) {
                 if (mValueResultViewRight != null) {
-                    mValueResultViewRight.setText(value.toString());
+                    mValueResultViewRight.setText(values.toString());
                 }
             }
         }
@@ -142,7 +143,7 @@ public class MainActivity extends AppCompatActivity {
         public void onConnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
                 changeButtonState(mConnectButtonRight, OrpheCoreStatus.connected);
-                changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.connected);
+                changeButtonState(mGetLatestValueButtonRight, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
             }
@@ -153,7 +154,7 @@ public class MainActivity extends AppCompatActivity {
         public void onDisconnect(BluetoothDevice bluetoothDevice) {
             if (mConnectionStatusTextViewRight != null) {
                 changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
-                changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.none);
+                changeButtonState(mGetLatestValueButtonRight, OrpheCoreStatus.none);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器の接続が解除されました", bluetoothDevice.getName()));
             }
@@ -171,8 +172,8 @@ public class MainActivity extends AppCompatActivity {
         mValueResultViewLeft = findViewById(R.id.text_value_result_left);
         mConnectionStatusTextViewRight = findViewById(R.id.text_connection_status_right);
         mValueResultViewRight = findViewById(R.id.text_value_result_right);
-        mGetDeviceInfoButtonLeft = findViewById(R.id.get_device_info_left);
-        mGetDeviceInfoButtonRight = findViewById(R.id.get_device_info_right);
+        mGetLatestValueButtonLeft = findViewById(R.id.get_latest_value_left);
+        mGetLatestValueButtonRight = findViewById(R.id.get_latest_value_right);
         mBatteryStatusTextViewLeft = findViewById(R.id.battery_status_left);
         mBatteryStatusTextViewRight = findViewById(R.id.battery_status_right);
 
@@ -204,8 +205,8 @@ public class MainActivity extends AppCompatActivity {
         mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
         changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
         changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
-        changeButtonState(mGetDeviceInfoButtonLeft, OrpheCoreStatus.none);
-        changeButtonState(mGetDeviceInfoButtonRight, OrpheCoreStatus.none);
+        changeButtonState(mGetLatestValueButtonLeft, OrpheCoreStatus.none);
+        changeButtonState(mGetLatestValueButtonRight, OrpheCoreStatus.none);
         mConnectButtonLeft.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheLeft.status();
             if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
@@ -222,16 +223,20 @@ public class MainActivity extends AppCompatActivity {
                 mOrpheRight.disconnect();
             }
         });
-        mGetDeviceInfoButtonLeft.setOnClickListener(v -> {
+        mGetLatestValueButtonLeft.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheLeft.status();
             if(status == OrpheCoreStatus.connected){
-                mOrpheLeft.getDeviceInfo();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    mOrpheLeft.requestLatestInsoleValue();
+                }
             }
         });
-        mGetDeviceInfoButtonRight.setOnClickListener(v -> {
+        mGetLatestValueButtonRight.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheRight.status();
             if(status == OrpheCoreStatus.connected){
-                mOrpheRight.getDeviceInfo();
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    mOrpheRight.requestLatestInsoleValue();
+                }
             }
         });
         mOrpheLeft.startScan();
