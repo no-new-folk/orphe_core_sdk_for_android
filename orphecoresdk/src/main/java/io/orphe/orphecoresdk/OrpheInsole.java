@@ -322,15 +322,17 @@ public class OrpheInsole {
             return;
         }
         final LocalDateTime now = LocalDateTime.now();
-        mBluetoothGatt.writeCharacteristic(characteristic, new byte[]{
+        final int res = mBluetoothGatt.writeCharacteristic(characteristic, new byte[]{
                 (byte)(now.getYear() - 2000),
                 (byte)(now.getMonthValue()),
                 (byte)(now.getDayOfMonth()),
                 (byte)(now.getHour()),
                 (byte)(now.getMinute()),
                 (byte)(now.getSecond()),
-                (byte)Math.round(now.getNano() / 1_000_000 / 10),
-        }, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+                0,
+                //(byte)Math.round(now.getNano() / 1_000_000 / 10),
+        }, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+
     }
 
 
@@ -368,9 +370,11 @@ public class OrpheInsole {
 
     /**
      * 最新の[OrpheInsoleValue]の取得をリクエストします。
+     *
+     * @param length 取得する数（あくまで目安）
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    public void requestLatestInsoleValue() {
+    public void requestLatestInsoleValue(int length) {
         if (mLatestValue == null) {
             getCurrentSerialNumber();
             return;
@@ -382,13 +386,36 @@ public class OrpheInsole {
         } else {
             serialNumber++;
         }
-        final int length = (int) Math.ceil((now - mLatestValue.startTime) / 5);
-        if (length <= 0) {
-            return;
+        if (length > 0) {
+            final long startTime = now - length * 20;
+            serialNumber = serialNumber + (int) Math.ceil((startTime - mLatestValue.startTime) / 20);
+            serialNumber = serialNumber % (256 * 256);
+            Log.d(TAG, "Request: " + serialNumber + ", " + length);
+            requestInsoleValue(new OrpheValueRequest[]{
+                    new OrpheValueRequest(serialNumber, length)
+            });
+        } else {
+            if(now > mLatestValue.startTime){
+                final int l = (int) Math.ceil((now - mLatestValue.startTime) / 20);
+                Log.d(TAG, "Request: " + serialNumber + ", " + l);
+                requestInsoleValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, l)
+                });
+            } else {
+                Log.d(TAG, "Request: " + serialNumber + ", " + 10);
+                requestInsoleValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, 10)
+                });
+            }
         }
-        requestInsoleValue(new OrpheValueRequest[]{
-                new OrpheValueRequest(serialNumber, length)
-        });
+    }
+
+    /**
+     * 最新の[OrpheInsoleValue]の取得をリクエストします。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestLatestInsoleValue() {
+        requestLatestInsoleValue(0);
     }
 
     /**
@@ -646,8 +673,13 @@ public class OrpheInsole {
             Log.d(TAG, "descriptor writeresult:" + writeResult);
             if (enable) {
                 mOrpheCallback.onStartNotify(characteristicUUID);
-                syncDateTime();
-                getCurrentSerialNumber();
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(() -> {
+                    syncDateTime();
+                    handler.postDelayed(() -> {
+                        getCurrentSerialNumber();
+                    }, 500);
+                }, 500);
             } else {
                 mOrpheCallback.onStopNotify(characteristicUUID);
             }

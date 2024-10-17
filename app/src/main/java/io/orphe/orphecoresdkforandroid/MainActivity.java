@@ -227,7 +227,7 @@ public class MainActivity extends AppCompatActivity {
             final OrpheCoreStatus status = mOrpheLeft.status();
             if(status == OrpheCoreStatus.connected){
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    mOrpheLeft.requestLatestInsoleValue();
+                    mOrpheLeft.requestLatestInsoleValue(100);
                 }
             }
         });
@@ -235,7 +235,7 @@ public class MainActivity extends AppCompatActivity {
             final OrpheCoreStatus status = mOrpheRight.status();
             if(status == OrpheCoreStatus.connected){
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                    mOrpheRight.requestLatestInsoleValue();
+                    mOrpheRight.requestLatestInsoleValue(100);
                 }
             }
         });

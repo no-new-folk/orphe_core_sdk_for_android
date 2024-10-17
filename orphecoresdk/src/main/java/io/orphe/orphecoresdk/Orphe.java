@@ -351,28 +351,49 @@ public class Orphe {
 
     /**
      * 最新の[OrpheSensorValue]の取得をリクエストします。
+     *
+     * @param length 取得する数（あくまで目安）
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    public void requestLatestSensorValue(){
-        if(mLatestValue == null){
+    public void requestLatestSensorValue(int length) {
+        if (mLatestValue == null) {
             getCurrentSerialNumber();
             return;
         }
         final long now = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
         int serialNumber = mLatestValue.serialNumber;
-        if(serialNumber >= 256 * 256 - 1){
+        if (serialNumber >= 256 * 256 - 1) {
             serialNumber = 0;
         } else {
             serialNumber++;
         }
-
-        final int length = (int)Math.ceil((now - mLatestValue.startTime) / 5);
-        if (length <= 0) {
-            return;
+        if (length > 0) {
+            final long startTime = now - length * 40;
+            serialNumber = serialNumber + (int) Math.ceil((startTime - mLatestValue.startTime) / 40);
+            serialNumber = serialNumber % (256 * 256);
+            requestSensorValue(new OrpheValueRequest[]{
+                    new OrpheValueRequest(serialNumber, length)
+            });
+        } else {
+            if(now > mLatestValue.startTime){
+                final int l = (int) Math.ceil((now - mLatestValue.startTime) / 40);
+                requestSensorValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, l)
+                });
+            } else {
+                requestSensorValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, 40)
+                });
+            }
         }
-        requestSensorValue(new OrpheValueRequest[]{
-                new OrpheValueRequest(serialNumber, length)
-        });
+    }
+
+    /**
+     * 最新の[OrpheSensorValue]の取得をリクエストします。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestLatestSensorValue() {
+        requestLatestSensorValue(100);
     }
 
     /**
@@ -609,8 +630,13 @@ public class Orphe {
             Log.d(TAG, "descriptor writeresult:" + writeResult);
             if (enable) {
                 mOrpheCallback.onStartNotify(characteristicUUID);
-                syncDateTime();
-                getCurrentSerialNumber();
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(() -> {
+                    syncDateTime();
+                    handler.postDelayed(() -> {
+                        getCurrentSerialNumber();
+                    }, 500);
+                }, 500);
             } else {
                 mOrpheCallback.onStopNotify(characteristicUUID);
             }

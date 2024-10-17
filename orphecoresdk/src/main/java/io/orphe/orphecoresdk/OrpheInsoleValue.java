@@ -1,6 +1,9 @@
 package io.orphe.orphecoresdk;
 
+import static android.content.ContentValues.TAG;
+
 import android.os.Build;
+import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
@@ -75,6 +78,11 @@ public class OrpheInsoleValue {
      */
     public String toString(){
       final StringBuilder builder = new StringBuilder();
+        builder.append("#");
+        builder.append(String.format("%d", serialNumber));
+        builder.append(" @");
+        builder.append(String.format("%d", startTime));
+        builder.append("\n");
         builder.append("pressure:(");
         builder.append(String.format("%.2f", pressure1));
         builder.append(",");
@@ -136,10 +144,10 @@ public class OrpheInsoleValue {
                 now.getYear(),
                 now.getMonth(),
                 now.getDayOfMonth(),
-                now.getHour(),
+                getUint8(bytes, 3),
                 getUint8(bytes, 4),
                 getUint8(bytes, 5),
-                getUint8(bytes, 6) * 1000
+                getUint16(bytes, 6) * 1000
         );
         for (int s = 3; s >= 0; s--) {
             index = s * 24 + 8;

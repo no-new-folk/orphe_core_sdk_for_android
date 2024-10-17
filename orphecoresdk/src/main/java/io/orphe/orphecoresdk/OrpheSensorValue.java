@@ -209,10 +209,10 @@ public class OrpheSensorValue {
                 now.getYear(),
                 now.getMonth(),
                 now.getDayOfMonth(),
-                now.getHour(),
+                getUint8(bytes, 3),
                 getUint8(bytes, 4),
                 getUint8(bytes, 5),
-                getUint8(bytes, 6) * 1000
+                getUint16(bytes, 6) * 1000
         );
         for (int s = 7; s >= 0; s--) {
             index = s * 12 + 8;
