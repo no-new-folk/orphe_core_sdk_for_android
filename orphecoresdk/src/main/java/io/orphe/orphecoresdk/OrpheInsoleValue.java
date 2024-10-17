@@ -31,10 +31,12 @@ public class OrpheInsoleValue {
                           final long endTime,
 
                           /// 圧力の値
-                          @NonNull final double pressureOutside,
-                          @NonNull final double pressureTop,
-                          @NonNull final double pressureInside,
-                          @NonNull final double pressureBottom,
+                          @NonNull final double pressure1,
+                          @NonNull final double pressure2,
+                          @NonNull final double pressure3,
+                          @NonNull final double pressure4,
+                          @NonNull final double pressure5,
+                          @NonNull final double pressure6,
 
                           /// 加速度
                           @NonNull final double accX,
@@ -52,10 +54,12 @@ public class OrpheInsoleValue {
       this.dataPosition = dataPosition;
       this.startTime = startTime;
       this.endTime = endTime;
-      this.pressureOutside = pressureOutside;
-      this.pressureTop = pressureTop;
-      this.pressureInside = pressureInside;
-      this.pressureBottom = pressureBottom;
+      this.pressure1 = pressure1;
+      this.pressure2 = pressure2;
+      this.pressure3 = pressure3;
+      this.pressure4 = pressure4;
+      this.pressure5 = pressure5;
+      this.pressure6 = pressure6;
       this.accX = accX;
       this.accY = accY;
       this.accZ = accZ;
@@ -72,13 +76,17 @@ public class OrpheInsoleValue {
     public String toString(){
       final StringBuilder builder = new StringBuilder();
         builder.append("pressure:(");
-        builder.append(String.format("%.2f", pressureOutside));
+        builder.append(String.format("%.2f", pressure1));
         builder.append(",");
-        builder.append(String.format("%.2f", pressureInside));
+        builder.append(String.format("%.2f", pressure2));
         builder.append(",");
-        builder.append(String.format("%.2f", pressureTop));
+        builder.append(String.format("%.2f", pressure3));
         builder.append(",");
-        builder.append(String.format("%.2f", pressureBottom));
+        builder.append(String.format("%.2f", pressure4));
+        builder.append(",");
+        builder.append(String.format("%.2f", pressure5));
+        builder.append(",");
+        builder.append(String.format("%.2f", pressure6));
         builder.append(")\n");
         builder.append("acc:(");
         builder.append(String.format("%.2f", accX));
@@ -122,13 +130,13 @@ public class OrpheInsoleValue {
         }
         index = 2;
 
-        final int serialNumber = parseInt(bytes, 1);
+        final int serialNumber = getUint16(bytes, 1);
         final LocalDateTime now = LocalDateTime.now();
         final LocalDateTime baseTimestamp = LocalDateTime.of(
                 now.getYear(),
                 now.getMonth(),
                 now.getDayOfMonth(),
-                getUint8(bytes, 3),
+                now.getHour(),
                 getUint8(bytes, 4),
                 getUint8(bytes, 5),
                 getUint8(bytes, 6) * 1000
@@ -150,58 +158,34 @@ public class OrpheInsoleValue {
             final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
             final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
             final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
-            // 左右で逆になる
-            if (sidePosition.side == OrpheSide.left) {
-                final double pressureOutside = parseInt(bytes, 20);
-                final double pressureTop = parseInt(bytes, 22);
-                final double pressureInside = parseInt(bytes, 24);
-                final double pressureBottom = parseInt(bytes, 26);
-                res.add(
-                        new OrpheInsoleValue(
-                                sidePosition,
-                                serialNumber,
-                                0,
-                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                                pressureOutside,
-                                pressureTop,
-                                pressureInside,
-                                pressureBottom,
-                                accX,
-                                accY,
-                                accZ,
-                                gyroX,
-                                gyroY,
-                                gyroZ
+            final double pressure1 = parseInt(bytes, 20);
+            final double pressure2 = parseInt(bytes, 22);
+            final double pressure3 = parseInt(bytes, 24);
+            final double pressure4 = parseInt(bytes, 26);
+            final double pressure5 = parseInt(bytes, 28);
+            final double pressure6 = parseInt(bytes, 30);
+            res.add(
+                    new OrpheInsoleValue(
+                            sidePosition,
+                            serialNumber,
+                            0,
+                            timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                            timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
+                            pressure1,
+                            pressure2,
+                            pressure3,
+                            pressure4,
+                            pressure5,
+                            pressure6,
+                            accX,
+                            accY,
+                            accZ,
+                            gyroX,
+                            gyroY,
+                            gyroZ
 
-                        )
-                );
-            } else {
-                final double pressureInside = parseInt(bytes, 20);
-                final double pressureTop = parseInt(bytes, 22);
-                final double pressureOutside = parseInt(bytes, 24);
-                final double pressureBottom = parseInt(bytes, 26);
-                res.add(
-                        new OrpheInsoleValue(
-                                sidePosition,
-                                serialNumber,
-                                0,
-                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                                timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                                pressureOutside,
-                                pressureTop,
-                                pressureInside,
-                                pressureBottom,
-                                accX,
-                                accY,
-                                accZ,
-                                gyroX,
-                                gyroY,
-                                gyroZ
-
-                        )
-                );
-            }
+                    )
+            );
         }
         final OrpheInsoleValue[] array = new OrpheInsoleValue[res.size()];
         return res.toArray(array);
@@ -234,21 +218,29 @@ public class OrpheInsoleValue {
     public final long endTime;
 
     /**
-     * 圧力（外側）
+     * 圧力１
      */
-    @NonNull public final double pressureOutside;
+    @NonNull public final double pressure1;
     /**
-     * 圧力（上部）
+     * 圧力２
      */
-    @NonNull public final double pressureTop;
+    @NonNull public final double pressure2;
     /**
-     * 圧力（内側）
+     * 圧力３
      */
-    @NonNull public final double pressureInside;
+    @NonNull public final double pressure3;
     /**
-     * 圧力（下部）
+     * 圧力４
      */
-    @NonNull public final double pressureBottom;
+    @NonNull public final double pressure4;
+    /**
+     * 圧力５
+     */
+    @NonNull public final double pressure5;
+    /**
+     * 圧力６
+     */
+    @NonNull public final double pressure6;
 
 
     /**
@@ -281,8 +273,8 @@ public class OrpheInsoleValue {
         return (int)((getInt8(bytes, index) << 8) + getInt8(bytes, index + 1));
     }
 
-    private static short getUint16(@NonNull byte[] data, int index) {
-        return (short) (((data[index] & 0xFF) << 8) | (data[index + 1] & 0xFF));
+    private static int getUint16(@NonNull byte[] data, int index) {
+        return (int) (((data[index] & 0xFF) << 8) | (data[index + 1] & 0xFF));
     }
     private static byte getUint8(@NonNull byte[] data, int index) {
         return (byte) (data[index] & 0xFF);

@@ -203,13 +203,13 @@ public class OrpheSensorValue {
         }
         index = 2;
 
-        final int serialNumber = parseInt(bytes, 1);
+        final int serialNumber = getUint16(bytes, 1);
         final LocalDateTime now = LocalDateTime.now();
         final LocalDateTime baseTimestamp = LocalDateTime.of(
                 now.getYear(),
                 now.getMonth(),
                 now.getDayOfMonth(),
-                getUint8(bytes, 3),
+                now.getHour(),
                 getUint8(bytes, 4),
                 getUint8(bytes, 5),
                 getUint8(bytes, 6) * 1000

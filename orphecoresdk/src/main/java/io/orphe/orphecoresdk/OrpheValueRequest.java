@@ -33,4 +33,19 @@ public class OrpheValueRequest {
      */
     @NonNull
     public final int length;
+
+    /**
+     * 文字列に変換します。
+     *
+     * @return 文字列
+     */
+    public String toString(){
+        final StringBuilder builder = new StringBuilder();
+        builder.append("request:(");
+        builder.append(String.format("%d", startSerialNumber));
+        builder.append(",");
+        builder.append(String.format("%d", length));
+        builder.append(")\n");
+        return builder.toString();
+    }
 }

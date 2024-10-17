@@ -50,9 +50,9 @@ public class MainActivity extends AppCompatActivity {
     private final OrpheInsoleCallback mOrpheCallbackLeft = new OrpheInsoleCallback() {
         @Override
         public void gotInsoleValue(OrpheInsoleValue[] values) {
-            if (values != null) {
+            if (values != null && values.length > 0) {
                 if (mValueResultViewLeft != null) {
-                    mValueResultViewLeft.setText(values.toString());
+                    mValueResultViewLeft.setText(values[0].toString());
                 }
             }
         }
