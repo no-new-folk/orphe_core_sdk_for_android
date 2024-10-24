@@ -30,6 +30,12 @@ public class GattUUIDDefine {
             = UUID.fromString("24354f22-1c46-430e-a4ab-a1eeabbcdfc0");
 
     /**
+     * ORPHE COREの時間同期のキャラクタリスティックUUID。
+     */
+    public static final UUID UUID_CHAR_ORPHE_DATE_TIME
+            = UUID.fromString("f53eeeb1-b2e8-492a-9673-10e0f1c29026");
+
+    /**
      * ORPHE COREのセンサー値関連のキャラクタリスティックUUID。
      */
     public static final UUID UUID_CHAR_ORPHE_SENSOR_VALUES

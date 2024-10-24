@@ -53,13 +53,13 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 ### ORPHE INSOLEの場合
 
-- `OrpheInsoleCallback`オブジェクトを作成します。この中にORPHE COREの各イベントに対しての動作を記述します。
+- `OrpheInsoleCallback`オブジェクトを作成します。この中にORPHE INSOLEの各イベントに対しての動作を記述します。
 
     ```
     private final OrpheInsoleCallback mOrpheInsoleCallback = new OrpheInsoleCallback() {
         @Override
-        public void gotInsoleValue(OrpheInsoleValue value) {
-            Log.d(TAG, value.toString());
+        public void gotInsoleValues(OrpheInsoleValue[] values) {
+            Log.d(TAG, values[0].toString());
         }
 
         @Override
@@ -121,10 +121,29 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 - 接続後`OrpheInsoleCallback`の`onConnect`のコールバックが呼び出されます。
 
-- またセンサー値のNotifyが有効になり、`OrpheInsoleCallback`の`gotInsoleValue`に各Notifyごとで送信されたセンサー値が渡されます。
+- センサー値の取得に関して
 
-    - Notifyは50Hzで送られており各圧力センサー値を取得することができます。
-    - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
+    - センサー値の取得を行うためには**センサー値送信のリクエスト**を送る必要があります。
+        - `requestLatestInsoleValue`を呼び出すことで最新のセンサー値を取得することが可能です。
+
+            ```
+            mOrpheInsole.requestLatestInsoleValue();
+            // もしくは
+            mOrpheInsole.requestLatestInsoleValue(100);
+            ```
+
+            - `length`のパラメーターを指定した場合は、**センサー値の最終取得時刻から予想されるシリアル番号からlength件**を取得します。
+                - 取得件数が少なすぎると時間のズレ等でうまく取得できない可能性があるので100件程度までは数を増やしてください。
+            - `length`のパラメータを指定しない場合は、**センサー値の最終取得時刻から予想されるシリアル番号から現在時刻までのセンサー値を取得**します。
+        
+        - `requestInsoleValue`を呼び出すことで自由にデバイス内に位置時保存されているセンサー値を取得することができます。
+            - `OrpheValueRequest`に最初のシリアル番号とそこから取得する件数を指定してパラメータに渡してください。（最大30種類リクエストを送ることが可能）
+        
+        - リクエストは新しく送信された場合**古いリクエストが一旦すべて削除され新しいリクエストが適用されます**。常に最新値を取得したい場合は一定の間隔で`requestLatestInsoleValue`を実行していればよいですが、再送処理を行う場合は`requestInsoleValue`を呼び出した後目当てのシリアル番号に到達するまでは新しいリクエストを行わないようにしてください。
+        
+    - リクエストされたセンサー値はNotifyで送信され、`OrpheInsoleCallback`の`gotInsoleValues`に渡されます。
+        - 200Hzで取得された各圧力センサー値を４つまとめて取得することができます。シリアル番号1増えるにつき4件のデータを取得することになるので**各シリアル番号ごとのインターバルは理論上20ms**になります。
+        - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
 
 - 作成した`OrpheInsole`オブジェクトの`disconnect`を呼び出すことで切断します。
 
@@ -210,6 +229,30 @@ ORPHE COREに接続するためのJava SDKを提供します。
     ```
 
 - 接続後`OrpheCoreCallback`の`onConnect`のコールバックが呼び出されます。
+
+- センサー値の取得に関して
+
+    - センサー値の取得を行うためには**センサー値送信のリクエスト**を送る必要があります。
+        - `requestLatestSensorValue`を呼び出すことで最新のセンサー値を取得することが可能です。
+
+            ```
+            mOrpheInsole.requestLatestSensorValue();
+            // もしくは
+            mOrpheInsole.requestLatestSensorValue(100);
+            ```
+
+            - `length`のパラメーターを指定した場合は、**センサー値の最終取得時刻から予想されるシリアル番号からlength件**を取得します。
+                - 取得件数が少なすぎると時間のズレ等でうまく取得できない可能性があるので100件程度までは数を増やしてください。
+            - `length`のパラメータを指定しない場合は、**センサー値の最終取得時刻から予想されるシリアル番号から現在時刻までのセンサー値を取得**します。
+        
+        - `requestSensorValue`を呼び出すことで自由にデバイス内に位置時保存されているセンサー値を取得することができます。
+            - `OrpheValueRequest`に最初のシリアル番号とそこから取得する件数を指定してパラメータに渡してください。（最大30種類リクエストを送ることが可能）
+        
+        - リクエストは新しく送信された場合**古いリクエストが一旦すべて削除され新しいリクエストが適用されます**。常に最新値を取得したい場合は一定の間隔で`requestLatestSensorValue`を実行していればよいですが、再送処理を行う場合は`requestSensorValue`を呼び出した後目当てのシリアル番号に到達するまでは新しいリクエストを行わないようにしてください。
+        
+    - リクエストされたセンサー値はNotifyで送信され、`OrpheCoreCallback`の`gotSensorValues`に渡されます。
+        - 200Hzで取得された各圧力センサー値を8つまとめて取得することができます。シリアル番号1増えるにつき8件のデータを取得することになるので**各シリアル番号ごとのインターバルは理論上40ms**になります。
+        - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
 
 - またセンサー値のNotifyが有効になり、`OrpheCoreCallback`の`gotSensorValues`に各Notifyごとで送信されたセンサー値が渡されます。（１度のNotifyで最大4つのセンサー値が渡されます）
 

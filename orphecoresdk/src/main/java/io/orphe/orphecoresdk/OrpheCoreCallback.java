@@ -19,6 +19,15 @@ public abstract class OrpheCoreCallback implements OrpheCallback {
     }
 
     /**
+     * 現在のシリアルナンバーの値がNotifyで取得されたときのコールバック。
+     *
+     * @param currentSerialNumber 現在のシリアルナンバー。
+     */
+    public void gotCurrentSerialNumber(int currentSerialNumber) {
+
+    }
+
+    /**
      * ORPHE COREのDeviceInfoが取得されたときのコールバック。
      * DeviceInfo中にバッテリーの情報が含まれます。
      *

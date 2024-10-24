@@ -80,8 +80,8 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <Button
-                    android:id="@+id/get_device_info_left"
-                    android:text="Get DeviceInfo"
+                    android:id="@+id/get_latest_value_left"
+                    android:text="Get LatestValue"
                     android:layout_marginHorizontal="16dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
@@ -148,8 +148,8 @@
                     app:layout_constraintTop_toTopOf="parent" />
 
                 <Button
-                    android:id="@+id/get_device_info_right"
-                    android:text="Get DeviceInfo"
+                    android:id="@+id/get_latest_value_right"
+                    android:text="Get LatestValue"
                     android:layout_marginHorizontal="16dp"
                     android:layout_width="match_parent"
                     android:layout_height="0dp"

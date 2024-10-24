@@ -20,6 +20,13 @@ public interface OrpheCallback {
     void gotDeviceInfo(DeviceInfoValue deviceInfo);
 
     /**
+     * 現在のシリアルナンバーの値がNotifyで取得されたときのコールバック。
+     *
+     * @param currentSerialNumber 現在のシリアルナンバー。
+     */
+    void gotCurrentSerialNumber(int currentSerialNumber);
+
+    /**
      * スキャンされたときのコールバック。
      *
      * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。

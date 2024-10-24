@@ -12,9 +12,18 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
     /**
      * インソールの値がNotifyで取得されたときのコールバック。
      *
-     * @param insoleValue １回のNotifyで送られたインソールの値が入ります。
+     * @param insoleValues 1回のNotifyで送られたインソールの値が入ります。（１度に複数送信されることもあります）
       */
-    public void gotInsoleValue(OrpheInsoleValue insoleValue) {
+    public void gotInsoleValues(OrpheInsoleValue[] insoleValues) {
+
+    }
+
+    /**
+     * 現在のシリアルナンバーの値がNotifyで取得されたときのコールバック。
+     *
+     * @param currentSerialNumber 現在のシリアルナンバー。
+     */
+    public void gotCurrentSerialNumber(int currentSerialNumber) {
 
     }
 

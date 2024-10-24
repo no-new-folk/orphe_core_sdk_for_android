@@ -12,6 +12,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
@@ -21,16 +22,24 @@ import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.ArrayList;
+
 import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 
 import java.util.Arrays;
+import java.util.Collection;
+import java.util.Iterator;
 import java.util.List;
+import java.util.ListIterator;
 import java.util.UUID;
 
 /**
  * ORPHE INSOLEを管理します。
- * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+ * インスタンス化したあと[startScan]で対応しているORPHE INSOLEを探し、[connect]で接続します。
  * [disconnect]で切断します。
  */
 public class OrpheInsole {
@@ -44,12 +53,24 @@ public class OrpheInsole {
     private final Handler mHandler = new Handler();
     public final OrpheSidePosition sidePosition;
 
+    private OrpheInsoleValue mLatestValue;
+
+    /**
+     * 加速度レンジ
+     */
+    public final OrpheAccRange accRange;
+
+    /**
+     * ジャイロレンジ
+     */
+    public final OrpheGyroRange gyroRange;
+
     /**
      * 現在の接続ステータスを返します。
      *
      * @return 現在の接続ステータス
      */
-    public OrpheCoreStatus status(){
+    public OrpheCoreStatus status() {
         return mStatus;
     }
 
@@ -61,14 +82,27 @@ public class OrpheInsole {
      *
      * @return 対応する[BluetoothDevice]
      */
-    public BluetoothDevice device() { return mBluetoothDevice; }
+    public BluetoothDevice device() {
+        return mBluetoothDevice;
+    }
+
+    /**
+     * 最新の[OrpheInsoleValue]を返します。
+     *
+     * @return 最新の[OrpheInsoleValue]
+     */
+    public OrpheInsoleValue getLatestValue() {
+        return mLatestValue;
+    }
 
     /**
      * 現在のDeviceInfoを返します。
      *
      * @return 現在のDeviceInfo。
      */
-    public DeviceInfoValue deviceInfo() { return mDeviceInfo; }
+    public DeviceInfoValue deviceInfo() {
+        return mDeviceInfo;
+    }
 
     private DeviceInfoValue mDeviceInfo = new DeviceInfoValue(
             OrpheBatteryStatus.unknown,
@@ -87,14 +121,18 @@ public class OrpheInsole {
      * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
      * [disconnect]で切断します。
      *
-     * @param context コンテキスト
+     * @param context       コンテキスト
      * @param orpheCallback コールバック引数
-     * @param sidePosition この[Orphe]に対応する取り付け位置
+     * @param sidePosition  この[Orphe]に対応する取り付け位置
+     * @param accRange      加速度レンジの設定
+     * @param gyroRange     ジャイロレンジの設定
      */
-    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
+        this.accRange = accRange;
+        this.gyroRange = gyroRange;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -107,25 +145,38 @@ public class OrpheInsole {
         mBluetoothDevice = null;
     }
 
+    /**
+     * ORPHE INSOLEを管理します。
+     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+     * [disconnect]で切断します。
+     *
+     * @param context       コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition  この[Orphe]に対応する取り付け位置
+     */
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition) {
+        this(context, orpheCallback, sidePosition, OrpheAccRange.range16, OrpheGyroRange.range2000);
+    }
+
 
     /**
-     * ORPHE COREのスキャンを開始します。
-     * 見つかった場合は[OrpheCallback.onScan]に対応する[BluetoothDevice]が渡されます。
+     * ORPHE INSOLEのスキャンを開始します。
+     * 見つかった場合は[OrpheInsoleCallback.onScan]に対応する[BluetoothDevice]が渡されます。
      */
     @SuppressLint("MissingPermission")
     public void startScan() {
-        if(mStatus == OrpheCoreStatus.disconnecting || mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting){
+        if (mStatus == OrpheCoreStatus.disconnecting || mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting) {
             return;
         }
         if (mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
             mStatus = OrpheCoreStatus.none;
         }
-        if (mBluetoothDevice != null) {
-            mOrpheCallback.onScan(mBluetoothDevice);
-            connect(mBluetoothDevice);
-            return;
-        }
+        // if (mBluetoothDevice != null) {
+        //    mOrpheCallback.onScan(mBluetoothDevice);
+        //    connect(mBluetoothDevice);
+        //    return;
+        // }
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
@@ -135,23 +186,25 @@ public class OrpheInsole {
 
         Log.d(TAG, "begin startScan");
         mStatus = OrpheCoreStatus.scanned;
+        // TODO: 暫定的にサービスUUIDによるフィルタはスキップ
         final List<ScanFilter> scanFilters = Arrays.asList(
-                new ScanFilter.Builder()
-                        .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_OTHER_SERVICE.toString()))
-                        .build(),
-                new ScanFilter.Builder()
-                        .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString()))
-                        .build());
+                //new ScanFilter.Builder()
+                //      .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_OTHER_SERVICE.toString()))
+                //    .build(),
+                //new ScanFilter.Builder()
+                //      .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString()))
+                //    .build()
+        );
         mBluetoothLeScanner.startScan(scanFilters, new ScanSettings.Builder().build(),
                 scanCallback);
     }
 
     /**
-     * ORPHE COREのスキャンを停止します。
+     * ORPHE INSOLEのスキャンを停止します。
      */
     @SuppressLint("MissingPermission")
     public void stopScan() {
-        if(mStatus == OrpheCoreStatus.none){
+        if (mStatus == OrpheCoreStatus.none) {
             return;
         }
         if (mBluetoothGatt != null) {
@@ -166,11 +219,11 @@ public class OrpheInsole {
 
 
     /**
-     * ORPHE COREを切断します。
+     * ORPHE INSOLEを切断します。
      */
     @SuppressLint("MissingPermission")
     public void disconnect() {
-        if(mStatus != OrpheCoreStatus.connected){
+        if (mStatus != OrpheCoreStatus.connected) {
             return;
         }
         mStatus = OrpheCoreStatus.disconnecting;
@@ -181,13 +234,13 @@ public class OrpheInsole {
     }
 
     /**
-     * 接続する[BluetoothDevice]を渡してORPHE CORE接続します。
+     * 接続する[BluetoothDevice]を渡してORPHE INSOLE接続します。
      *
-     * @param device [OrpheCallback.onScan]で渡された[BluetoothDevice]
+     * @param device [OrpheInsoleCallback.onScan]で渡された[BluetoothDevice]
      */
     @SuppressLint("MissingPermission")
     public void connect(BluetoothDevice device) {
-        if(mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting){
+        if (mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting) {
             return;
         }
         mBluetoothLeScanner.stopScan(scanCallback);
@@ -207,6 +260,10 @@ public class OrpheInsole {
         }
     }
 
+
+    /**
+     * デバイスの設定情報を読み取ります。
+     */
     @SuppressLint("MissingPermission")
     public void getDeviceInfo() {
         if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
@@ -225,14 +282,225 @@ public class OrpheInsole {
         mBluetoothGatt.readCharacteristic(characteristic);
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @SuppressLint("MissingPermission")
+    private void setDeviceInfo(byte[] value) {
+        if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
+            return;
+        }
+        BluetoothGattService service = mBluetoothGatt.getService(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION);
+        if (service == null) {
+            Log.d(TAG, "Could not get service: " + GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString());
+            return;
+        }
+        BluetoothGattCharacteristic characteristic = service.getCharacteristic(GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION);
+        if (characteristic == null) {
+            Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.toString());
+            return;
+        }
+        mBluetoothGatt.writeCharacteristic(characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+    }
+
+    /**
+     * デバイスの時間をアプリと同期します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @SuppressLint("MissingPermission")
+    public void syncDateTime(){
+        if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
+            return;
+        }
+        BluetoothGattService service = mBluetoothGatt.getService(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION);
+        if (service == null) {
+            Log.d(TAG, "Could not get service: " + GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString());
+            return;
+        }
+        BluetoothGattCharacteristic characteristic = service.getCharacteristic(GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME);
+        if (characteristic == null) {
+            Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME.toString());
+            return;
+        }
+        final LocalDateTime now = LocalDateTime.now();
+        final int res = mBluetoothGatt.writeCharacteristic(characteristic, new byte[]{
+                (byte)(now.getYear() - 2000),
+                (byte)(now.getMonthValue()),
+                (byte)(now.getDayOfMonth()),
+                (byte)(now.getHour()),
+                (byte)(now.getMinute()),
+                (byte)(now.getSecond()),
+                0,
+                //(byte)Math.round(now.getNano() / 1_000_000 / 10),
+        }, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+
+    }
+
+
+    /**
+     * デバイスの時間を取得します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @SuppressLint("MissingPermission")
+    public void getCurrentDateTime(){
+        if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
+            return;
+        }
+        Log.d(TAG, "SyncTime: ");
+        BluetoothGattService service = mBluetoothGatt.getService(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION);
+        if (service == null) {
+            Log.d(TAG, "Could not get service: " + GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString());
+            return;
+        }
+        BluetoothGattCharacteristic characteristic = service.getCharacteristic(GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME);
+        if (characteristic == null) {
+            Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME.toString());
+            return;
+        }
+        mBluetoothGatt.readCharacteristic(characteristic);
+    }
+
+
+    /**
+     * 現在の生データのシリアルナンバーを取得します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void getCurrentSerialNumber() {
+        setDeviceInfo(new byte[]{11, 1});
+    }
+
+    /**
+     * 最新の[OrpheInsoleValue]の取得をリクエストします。
+     *
+     * @param length 取得する数（あくまで目安）
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestLatestInsoleValue(int length) {
+        if (mLatestValue == null) {
+            getCurrentSerialNumber();
+            return;
+        }
+        final long now = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
+        int serialNumber = mLatestValue.serialNumber;
+        if (serialNumber >= 256 * 256 - 1) {
+            serialNumber = 0;
+        } else {
+            serialNumber++;
+        }
+        if (length > 0) {
+            final long startTime = now - length * 20;
+            serialNumber = serialNumber + (int) Math.ceil((startTime - mLatestValue.startTime) / 20);
+            serialNumber = serialNumber % (256 * 256);
+            Log.d(TAG, "Request: " + serialNumber + ", " + length);
+            requestInsoleValue(new OrpheValueRequest[]{
+                    new OrpheValueRequest(serialNumber, length)
+            });
+        } else {
+            if(now > mLatestValue.startTime){
+                final int l = (int) Math.ceil((now - mLatestValue.startTime) / 20);
+                Log.d(TAG, "Request: " + serialNumber + ", " + l);
+                requestInsoleValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, l)
+                });
+            } else {
+                Log.d(TAG, "Request: " + serialNumber + ", " + 10);
+                requestInsoleValue(new OrpheValueRequest[]{
+                        new OrpheValueRequest(serialNumber, 10)
+                });
+            }
+        }
+    }
+
+    /**
+     * 最新の[OrpheInsoleValue]の取得をリクエストします。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestLatestInsoleValue() {
+        requestLatestInsoleValue(0);
+    }
+
+    /**
+     * [OrpheInsoleValue]の取得をリクエストします。
+     *
+     * @param requests リクエスト情報を渡します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestInsoleValue(OrpheValueRequest[] requests) {
+        if (requests.length < 1) {
+            Log.e(TAG, "A minimum of one request is required.");
+        } else if (requests.length > 30) {
+            Log.e(TAG, "You cannot send more than 30 requests.");
+        }
+        int i = 0;
+        final byte[] byteList = new byte[requests.length * 4 + 2];
+        byteList[i] = 11;
+        i++;
+        byteList[i] = 2;
+        i++;
+        for (OrpheValueRequest request : requests) {
+            final int start = request.startSerialNumber;
+            final int length = request.length;
+            byteList[i] = (byte) (start >> 8);
+            i++;
+            byteList[i] = (byte) start;
+            i++;
+            byteList[i] = (byte) (length >> 8);
+            i++;
+            byteList[i] = (byte) length;
+            i++;
+        }
+        setDeviceInfo(byteList);
+    }
+
+    /**
+     * 現在のリクエストをキャンセルします。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void cancelRequestingSensorData() {
+        setDeviceInfo(new byte[]{11, 7});
+    }
+
+    /**
+     * 生データの蓄積を開始します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void startAccumulation() {
+        setDeviceInfo(new byte[]{11, 4});
+    }
+
+    /**
+     * 生データの蓄積を停止します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void stopAccumulation() {
+        setDeviceInfo(new byte[]{11, 6});
+    }
+
+    /**
+     * 蓄積された生データをすべてクリアします。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void clearAccumulation() {
+        setDeviceInfo(new byte[]{11, 3});
+    }
+
     private final ScanCallback scanCallback = new ScanCallback() {
         @SuppressLint("MissingPermission")
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
+            final ScanRecord record = result.getScanRecord();
+            final byte[] manufacturerData = record.getManufacturerSpecificData(0);
+            if (manufacturerData == null) {
+                return;
+            }
             final String deviceName = device.getName();
-            Log.d(TAG, "onScanResult:" + deviceName);
-            if(deviceName == null){
+            Log.d(TAG, "onScanResult:" + deviceName + " " + bytesToHex(manufacturerData));
+            // TODO: 暫定的にManufacturerDataから探す
+            if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[1] == 18) {
+                mBluetoothDevice = device;
+                mOrpheCallback.onScan(device);
+                return;
+            }
+            if (deviceName == null) {
                 return;
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
@@ -242,7 +510,18 @@ public class OrpheInsole {
         }
     };
 
+
+    // TODO: 不要になったら消す
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder hexString = new StringBuilder();
+        for (byte b : bytes) {
+            hexString.append(String.format("%02x", b));
+        }
+        return hexString.toString();
+    }
+
     private final BluetoothGattCallback mBluetoothGattCallback = new BluetoothGattCallback() {
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         @SuppressLint("MissingPermission")
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
@@ -252,15 +531,18 @@ public class OrpheInsole {
                 Log.d(TAG, "connected");
                 gatt.discoverServices();
                 mainHandler.post(
-                    () -> {
-                        mStatus = OrpheCoreStatus.connected;
-                        mOrpheCallback.onConnect(gatt.getDevice());
-                    }
+                        () -> {
+                            mStatus = OrpheCoreStatus.connected;
+                            mOrpheCallback.onConnect(gatt.getDevice());
+                        }
                 );
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.d(TAG, "disconnected");
+                Log.d(TAG, status().toString());
                 mainHandler.post(
                         () -> {
                             mStatus = OrpheCoreStatus.none;
+                            mBluetoothDevice = null;
                             mOrpheCallback.onDisconnect(gatt.getDevice());
                             startScan();
                         }
@@ -268,6 +550,7 @@ public class OrpheInsole {
             }
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -316,20 +599,20 @@ public class OrpheInsole {
             }
         }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         @Override
         public void onCharacteristicChanged(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             onNotified(gatt, characteristic, value);
         }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             onNotified(gatt, characteristic, characteristic.getValue());
         }
 
         private void outputGattServicesToLog(final List<BluetoothGattService> gattServices) {
-            if (gattServices == null){
+            if (gattServices == null) {
                 return;
             }
             if (!gattServices.isEmpty()) {
@@ -357,6 +640,7 @@ public class OrpheInsole {
             }
         }
 
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void setCharacteristicNotification(@NonNull BluetoothGatt gatt,
                                                    UUID serviceUUID, UUID characteristicUUID, boolean enable) {
             Log.d(TAG, "setCharacteristicNotification");
@@ -391,20 +675,28 @@ public class OrpheInsole {
             Log.d(TAG, "descriptor writeresult:" + writeResult);
             if (enable) {
                 mOrpheCallback.onStartNotify(characteristicUUID);
+                Handler handler = new Handler(Looper.getMainLooper());
+                handler.postDelayed(() -> {
+                    syncDateTime();
+                    handler.postDelayed(() -> {
+                        getCurrentSerialNumber();
+                    }, 500);
+                }, 500);
             } else {
                 mOrpheCallback.onStopNotify(characteristicUUID);
             }
         }
+
         @RequiresApi(api = Build.VERSION_CODES.O)
         private void onRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             // DeviceInfo
-            if(GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.equals(characteristic.getUuid())) {
+            if (GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.equals(characteristic.getUuid())) {
                 // Data
                 mainHandler.post(
                         () -> {
                             try {
-                                final DeviceInfoValue deviceInfo =  DeviceInfoValue.fromBytes(value);
+                                final DeviceInfoValue deviceInfo = DeviceInfoValue.fromBytes(value);
                                 mDeviceInfo = deviceInfo;
                                 mOrpheCallback.gotDeviceInfo(deviceInfo);
                             } catch (Exception e) {
@@ -413,9 +705,22 @@ public class OrpheInsole {
                         }
                 );
             }
+            // DateTime
+            if (GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME.equals(characteristic.getUuid())) {
+                // Data
+                mainHandler.post(
+                        () -> {
+                            try {
+                                Log.d(TAG, "DateTime: " + value[0] + ", " + value[1] + ", " + value[2] + ", " + value[3] + ", " + value[4] + ", " + value[5] + ", " + value[6]);
+                            } catch (Exception e) {
+                                throw new RuntimeException(e);
+                            }
+                        }
+                );
+            }
         }
 
-        @RequiresApi(api = Build.VERSION_CODES.O)
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             // 歩容解析
@@ -428,7 +733,24 @@ public class OrpheInsole {
                 mainHandler.post(
                         () -> {
                             try {
-                                mOrpheCallback.gotInsoleValue(OrpheInsoleValue.fromBytes(value, sidePosition));
+                                switch ((byte) value[0]) {
+                                    case 53:
+                                        if ((byte) value[1] == 1) {
+                                            final int currentSerialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
+                                            mOrpheCallback.gotCurrentSerialNumber(currentSerialNumber);
+                                            requestInsoleValue(new OrpheValueRequest[]{new OrpheValueRequest(
+                                                    currentSerialNumber, 10
+                                            )});
+                                        }
+                                        break;
+                                    case 54:
+                                        final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange);
+                                        mOrpheCallback.gotInsoleValues(values);
+                                        if (values.length > 0) {
+                                            mLatestValue = values[0];
+                                        }
+                                        break;
+                                }
                             } catch (Exception e) {
                                 throw new RuntimeException(e);
                             }
