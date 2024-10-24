@@ -14,7 +14,7 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
      *
      * @param insoleValues 1回のNotifyで送られたインソールの値が入ります。（１度に複数送信されることもあります）
       */
-    public void gotInsoleValue(OrpheInsoleValue[] insoleValues) {
+    public void gotInsoleValues(OrpheInsoleValue[] insoleValues) {
 
     }
 

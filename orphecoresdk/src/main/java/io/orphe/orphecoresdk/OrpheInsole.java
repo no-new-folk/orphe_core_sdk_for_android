@@ -172,11 +172,11 @@ public class OrpheInsole {
             mBluetoothLeScanner.stopScan(scanCallback);
             mStatus = OrpheCoreStatus.none;
         }
-        if (mBluetoothDevice != null) {
-            mOrpheCallback.onScan(mBluetoothDevice);
-            connect(mBluetoothDevice);
-            return;
-        }
+        // if (mBluetoothDevice != null) {
+        //    mOrpheCallback.onScan(mBluetoothDevice);
+        //    connect(mBluetoothDevice);
+        //    return;
+        // }
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
@@ -197,7 +197,6 @@ public class OrpheInsole {
         );
         mBluetoothLeScanner.startScan(scanFilters, new ScanSettings.Builder().build(),
                 scanCallback);
-        Log.d(TAG, "BBB");
     }
 
     /**
@@ -538,9 +537,12 @@ public class OrpheInsole {
                         }
                 );
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                Log.d(TAG, "disconnected");
+                Log.d(TAG, status().toString());
                 mainHandler.post(
                         () -> {
                             mStatus = OrpheCoreStatus.none;
+                            mBluetoothDevice = null;
                             mOrpheCallback.onDisconnect(gatt.getDevice());
                             startScan();
                         }
@@ -743,7 +745,7 @@ public class OrpheInsole {
                                         break;
                                     case 54:
                                         final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange);
-                                        mOrpheCallback.gotInsoleValue(values);
+                                        mOrpheCallback.gotInsoleValues(values);
                                         if (values.length > 0) {
                                             mLatestValue = values[0];
                                         }

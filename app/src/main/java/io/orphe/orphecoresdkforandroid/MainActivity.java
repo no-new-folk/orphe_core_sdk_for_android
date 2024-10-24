@@ -49,10 +49,13 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheInsoleCallback mOrpheCallbackLeft = new OrpheInsoleCallback() {
         @Override
-        public void gotInsoleValue(OrpheInsoleValue[] values) {
+        public void gotInsoleValues(OrpheInsoleValue[] values) {
             if (values != null && values.length > 0) {
                 if (mValueResultViewLeft != null) {
                     mValueResultViewLeft.setText(values[0].toString());
+                    //for(int i = values.length - 1; i>= 0; i--) {
+                    //    Log.d(TAG, values[i].toString());
+                    //}
                 }
             }
         }
@@ -107,10 +110,13 @@ public class MainActivity extends AppCompatActivity {
 
     private final OrpheInsoleCallback mOrpheCallbackRight = new OrpheInsoleCallback() {
         @Override
-        public void gotInsoleValue(OrpheInsoleValue[] values) {
-            if (values != null) {
+        public void gotInsoleValues(OrpheInsoleValue[] values) {
+            if (values != null && values.length > 0) {
                 if (mValueResultViewRight != null) {
-                    mValueResultViewRight.setText(values.toString());
+                    mValueResultViewRight.setText(values[0].toString());
+                    //for(int i = values.length - 1; i>= 0; i--) {
+                    //    Log.d(TAG, values[i].toString());
+                    //}
                 }
             }
         }
@@ -229,6 +235,8 @@ public class MainActivity extends AppCompatActivity {
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     mOrpheLeft.requestLatestInsoleValue(100);
                 }
+            } else {
+                Log.d(TAG, status.toString());
             }
         });
         mGetLatestValueButtonRight.setOnClickListener(v -> {
