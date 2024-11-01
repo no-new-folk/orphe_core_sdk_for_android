@@ -34,12 +34,12 @@ public class OrpheInsoleValue {
                           final long endTime,
 
                           /// 圧力の値
-                          @NonNull final double pressure1,
-                          @NonNull final double pressure2,
-                          @NonNull final double pressure3,
-                          @NonNull final double pressure4,
-                          @NonNull final double pressure5,
-                          @NonNull final double pressure6,
+                          @NonNull final double pressureToeOutside,
+                          @NonNull final double pressureMidOutside,
+                          @NonNull final double pressureToeInside,
+                          @NonNull final double pressureCenter,
+                          @NonNull final double pressureMidInside,
+                          @NonNull final double pressureHeel,
 
                           /// 加速度
                           @NonNull final double accX,
@@ -57,12 +57,12 @@ public class OrpheInsoleValue {
       this.dataPosition = dataPosition;
       this.startTime = startTime;
       this.endTime = endTime;
-      this.pressure1 = pressure1;
-      this.pressure2 = pressure2;
-      this.pressure3 = pressure3;
-      this.pressure4 = pressure4;
-      this.pressure5 = pressure5;
-      this.pressure6 = pressure6;
+      this.pressureToeOutside = pressureToeOutside;
+      this.pressureMidOutside = pressureMidOutside;
+      this.pressureToeInside = pressureToeInside;
+      this.pressureCenter = pressureCenter;
+      this.pressureMidInside = pressureMidInside;
+      this.pressureHeel = pressureHeel;
       this.accX = accX;
       this.accY = accY;
       this.accZ = accZ;
@@ -84,17 +84,17 @@ public class OrpheInsoleValue {
         builder.append(String.format("%d", startTime));
         builder.append("\n");
         builder.append("pressure:(");
-        builder.append(String.format("%.2f", pressure1));
+        builder.append(String.format("%.2f", pressureToeOutside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure2));
+        builder.append(String.format("%.2f", pressureMidOutside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure3));
+        builder.append(String.format("%.2f", pressureToeInside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure4));
+        builder.append(String.format("%.2f", pressureCenter));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure5));
+        builder.append(String.format("%.2f", pressureMidInside));
         builder.append(",");
-        builder.append(String.format("%.2f", pressure6));
+        builder.append(String.format("%.2f", pressureHeel));
         builder.append(")\n");
         builder.append("acc:(");
         builder.append(String.format("%.2f", accX));
@@ -166,12 +166,12 @@ public class OrpheInsoleValue {
             final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
             final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
             final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
-            final double pressure1 = parseInt(bytes, 20);
-            final double pressure2 = parseInt(bytes, 22);
-            final double pressure3 = parseInt(bytes, 24);
-            final double pressure4 = parseInt(bytes, 26);
-            final double pressure5 = parseInt(bytes, 28);
-            final double pressure6 = parseInt(bytes, 30);
+            final double pressureToeOutside = parseInt(bytes, 20);
+            final double pressureMidOutside = parseInt(bytes, 22);
+            final double pressureToeInside = parseInt(bytes, 24);
+            final double pressureCenter = parseInt(bytes, 26);
+            final double pressureMidInside = parseInt(bytes, 28);
+            final double pressureHeel = parseInt(bytes, 30);
             res.add(
                     new OrpheInsoleValue(
                             sidePosition,
@@ -179,12 +179,12 @@ public class OrpheInsoleValue {
                             0,
                             timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                             timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
-                            pressure1,
-                            pressure2,
-                            pressure3,
-                            pressure4,
-                            pressure5,
-                            pressure6,
+                            pressureToeOutside,
+                            pressureMidOutside,
+                            pressureToeInside,
+                            pressureCenter,
+                            pressureMidInside,
+                            pressureHeel,
                             accX,
                             accY,
                             accZ,
@@ -228,27 +228,27 @@ public class OrpheInsoleValue {
     /**
      * 圧力１
      */
-    @NonNull public final double pressure1;
+    @NonNull public final double pressureToeOutside;
     /**
      * 圧力２
      */
-    @NonNull public final double pressure2;
+    @NonNull public final double pressureMidOutside;
     /**
      * 圧力３
      */
-    @NonNull public final double pressure3;
+    @NonNull public final double pressureToeInside;
     /**
      * 圧力４
      */
-    @NonNull public final double pressure4;
+    @NonNull public final double pressureCenter;
     /**
      * 圧力５
      */
-    @NonNull public final double pressure5;
+    @NonNull public final double pressureMidInside;
     /**
      * 圧力６
      */
-    @NonNull public final double pressure6;
+    @NonNull public final double pressureHeel;
 
 
     /**
