@@ -493,11 +493,22 @@ public class OrpheInsole {
                 return;
             }
             final String deviceName = device.getName();
-            Log.d(TAG, "onScanResult:" + deviceName + " " + bytesToHex(manufacturerData));
             // TODO: 暫定的にManufacturerDataから探す
-            if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[1] == 18) {
+            if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
+                // 左右情報が一致しない場合は排除
+                if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
+                    return;
+                } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
+                    return;
+                }
                 mBluetoothDevice = device;
                 mOrpheCallback.onScan(device);
+                return;
+            }
+            // 左右情報が一致しない場合は排除
+            if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
+                return;
+            } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
                 return;
             }
             if (deviceName == null) {
