@@ -166,12 +166,12 @@ public class OrpheInsoleValue {
             final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
             final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
             final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
-            final double pressureToeOutside = parseInt(bytes, 20);
-            final double pressureMidOutside = parseInt(bytes, 22);
-            final double pressureToeInside = parseInt(bytes, 24);
-            final double pressureCenter = parseInt(bytes, 26);
-            final double pressureMidInside = parseInt(bytes, 28);
-            final double pressureHeel = parseInt(bytes, 30);
+            final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, 20));
+            final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, 22));
+            final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, 24));
+            final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, 26));
+            final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, 28));
+            final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, 30));
             res.add(
                     new OrpheInsoleValue(
                             sidePosition,
@@ -197,6 +197,10 @@ public class OrpheInsoleValue {
         }
         final OrpheInsoleValue[] array = new OrpheInsoleValue[res.size()];
         return res.toArray(array);
+    }
+
+    public static double milliVoltToNewton(double milliVolt) {
+        return Math.pow(Math.E, milliVolt * 3.3 / 4096 * 1000 * 360.02 / 300.03);
     }
 
     /**
