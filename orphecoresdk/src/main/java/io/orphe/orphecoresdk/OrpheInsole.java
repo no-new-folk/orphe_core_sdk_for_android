@@ -188,10 +188,10 @@ public class OrpheInsole {
         mStatus = OrpheCoreStatus.scanned;
         // TODO: 暫定的にサービスUUIDによるフィルタはスキップ
         final List<ScanFilter> scanFilters = Arrays.asList(
-                //new ScanFilter.Builder()
+                // new ScanFilter.Builder()
                 //      .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_OTHER_SERVICE.toString()))
                 //    .build(),
-                //new ScanFilter.Builder()
+                // new ScanFilter.Builder()
                 //      .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString()))
                 //    .build()
         );
@@ -487,14 +487,17 @@ public class OrpheInsole {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
+            final String deviceName = device.getName();
             final ScanRecord record = result.getScanRecord();
             final byte[] manufacturerData = record.getManufacturerSpecificData(0);
+            Log.d(TAG, "onScanResult:" + deviceName);
             if (manufacturerData == null) {
                 return;
             }
-            final String deviceName = device.getName();
-            // TODO: 暫定的にManufacturerDataから探す
-            if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
+            if(deviceName == null){
+                return;
+            }
+            if (deviceName.contains(DeviceNameDefine.ORPHE_INSOLE)) {
                 // 左右情報が一致しない場合は排除
                 if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
                     return;
@@ -505,19 +508,23 @@ public class OrpheInsole {
                 mOrpheCallback.onScan(device);
                 return;
             }
-            // 左右情報が一致しない場合は排除
-            if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
-                return;
-            } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
-                return;
-            }
-            if (deviceName == null) {
-                return;
-            }
-            if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
-                mBluetoothDevice = device;
-                mOrpheCallback.onScan(device);
-            }
+            // final String deviceName = device.getName();
+            // // TODO: 暫定的にManufacturerDataから探す
+            // if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
+            // }
+            // // 左右情報が一致しない場合は排除
+            // if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
+            //     return;
+            // } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
+            //     return;
+            // }
+            // if (deviceName == null) {
+            //     return;
+            // }
+            // if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
+            //     mBluetoothDevice = device;
+            //     mOrpheCallback.onScan(device);
+            // }
         }
     };
 

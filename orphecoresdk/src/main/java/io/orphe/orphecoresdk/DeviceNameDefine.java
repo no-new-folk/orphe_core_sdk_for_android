@@ -9,4 +9,8 @@ public class DeviceNameDefine {
      * ORPHECOREのデバイスの名前のプレフィックス定義
      */
     public static final String ORPHE_CORE = "CR-";
+    /**
+     * ORPHEINSOLEのデバイスの名前のプレフィックス定義
+     */
+    public static final String ORPHE_INSOLE = "INS";
 }
