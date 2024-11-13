@@ -48,6 +48,9 @@ public class Orphe {
 
     private OrpheSensorValue mLatestValue;
 
+    private int mLatestSerialNumber;
+    private LocalDateTime mLatestSerialNumberTime;
+
     /**
      * 加速度レンジ
      */
@@ -85,6 +88,20 @@ public class Orphe {
     public OrpheSensorValue getLatestValue() {
         return mLatestValue;
     }
+
+    /**
+     * 最新のシリアルナンバーを取得します。
+     *
+     * @return 最新のシリアルナンバー
+     */
+    public int getLatestSerialNumber() { return mLatestSerialNumber; }
+
+    /**
+     * 最新のシリアルナンバーを取得した日時を取得します。
+     *
+     * @return 最新のシリアルナンバーを取得した日時
+     */
+    public LocalDateTime getLatestSerialNumberTime() { return mLatestSerialNumberTime; }
 
     /**
      * 現在のDeviceInfoを返します。
@@ -356,12 +373,13 @@ public class Orphe {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void requestLatestSensorValue(int length) {
-        if (mLatestValue == null) {
+        if (mLatestSerialNumberTime == null) {
             getCurrentSerialNumber();
             return;
         }
         final long now = LocalDateTime.now().toInstant(ZoneOffset.UTC).toEpochMilli();
-        int serialNumber = mLatestValue.serialNumber;
+        final long prev = mLatestSerialNumberTime.toInstant(ZoneOffset.UTC).toEpochMilli();
+        int serialNumber = mLatestSerialNumber;
         if (serialNumber >= 256 * 256 - 1) {
             serialNumber = 0;
         } else {
@@ -369,14 +387,14 @@ public class Orphe {
         }
         if (length > 0) {
             final long startTime = now - length * 40;
-            serialNumber = serialNumber + (int) Math.ceil((startTime - mLatestValue.startTime) / 40);
+            serialNumber = serialNumber + (int) Math.ceil((startTime - prev) / 40);
             serialNumber = serialNumber % (256 * 256);
             requestSensorValue(new OrpheValueRequest[]{
                     new OrpheValueRequest(serialNumber, length)
             });
         } else {
-            if(now > mLatestValue.startTime){
-                final int l = (int) Math.ceil((now - mLatestValue.startTime) / 40);
+            if(now > prev){
+                final int l = (int) Math.ceil((now - prev) / 40);
                 requestSensorValue(new OrpheValueRequest[]{
                         new OrpheValueRequest(serialNumber, l)
                 });
@@ -690,12 +708,20 @@ public class Orphe {
                             try {
                                 switch ((byte) value[0]) {
                                     case 53:
-                                        if ((byte) value[1] == 1) {
-                                            final int currentSerialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
-                                            mOrpheCallback.gotCurrentSerialNumber(currentSerialNumber);
-                                            requestSensorValue(new OrpheValueRequest[]{new OrpheValueRequest(
-                                                    currentSerialNumber, 10
-                                            )});
+                                        switch ((byte) value[1]) {
+                                            case 1:
+                                                final int currentSerialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
+                                                mLatestSerialNumber = currentSerialNumber;
+                                                mLatestSerialNumberTime = LocalDateTime.now();
+                                                mOrpheCallback.gotCurrentSerialNumber(currentSerialNumber);
+                                                break;
+                                            case 2:
+                                                final int serialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
+                                                final int length = (int) (((value[4] & 0xFF) << 8) | (value[5] & 0xFF));
+                                                for (int i = 0; i < length; i++) {
+                                                    mOrpheCallback.sensorValueIsNotFound(serialNumber + i);
+                                                }
+                                                break;
                                         }
                                         break;
                                     case 54:
@@ -703,6 +729,8 @@ public class Orphe {
                                         mOrpheCallback.gotSensorValues(values);
                                         if (values.length > 0) {
                                             mLatestValue = values[0];
+                                            mLatestSerialNumber = mLatestValue.serialNumber;
+                                            mLatestSerialNumberTime = LocalDateTime.now();
                                         }
                                         break;
                                 }

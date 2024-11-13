@@ -1,5 +1,14 @@
 # Change Log
 
+## 2024-11-13
+
+### Changes
+
+---
+
+- **FIX**: GetCurrentSerialNumberにてデータも取得できてしまう不具合を修正
+- **FIX**: 取得できない場合のコールバックを追加
+
 ## 2024-11-12
 
 ### Changes

@@ -27,6 +27,13 @@ public interface OrpheCallback {
     void gotCurrentSerialNumber(int currentSerialNumber);
 
     /**
+     * 特定のシリアルナンバーが見つからなかった場合のコールバック
+     *
+     * @param serialNumber 見つからなかったシリアルナンバー
+     */
+    void sensorValueIsNotFound(int serialNumber);
+
+    /**
      * スキャンされたときのコールバック。
      *
      * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。
