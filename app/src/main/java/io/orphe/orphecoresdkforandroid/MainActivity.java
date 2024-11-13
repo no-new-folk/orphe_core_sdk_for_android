@@ -59,7 +59,13 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         }
+        @Override
+        public void sensorValueIsNotFound(int serialNumber) {
+            Log.d(TAG, "NotFound: " + serialNumber);
+        }
 
+
+        @Override
         public void gotDeviceInfo(DeviceInfoValue value){
             if(mBatteryStatusTextViewLeft != null) {
                 mBatteryStatusTextViewLeft.setText(value.batteryStatus.name());

@@ -28,6 +28,15 @@ public abstract class OrpheCoreCallback implements OrpheCallback {
     }
 
     /**
+     * 特定のシリアルナンバーが見つからなかった場合のコールバック
+     *
+     * @param serialNumber 見つからなかったシリアルナンバー
+     */
+    public void sensorValueIsNotFound(int serialNumber){
+
+    }
+
+    /**
      * ORPHE COREのDeviceInfoが取得されたときのコールバック。
      * DeviceInfo中にバッテリーの情報が含まれます。
      *
