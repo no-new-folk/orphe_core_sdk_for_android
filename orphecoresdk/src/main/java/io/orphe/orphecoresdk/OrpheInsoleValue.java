@@ -167,11 +167,11 @@ public class OrpheInsoleValue {
             final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
             final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
             // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 20) + "ToeInside: " + parseInt(bytes, 24) +"MidOutside: " +  parseInt(bytes, 22) + "pressureCenter: " + parseInt(bytes, 26) + "pressureMidInside: " + parseInt(bytes, 28) + "Heel" +  parseInt(bytes, 30));
-            final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, 20));
-            final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, 22));
-            final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, 24));
+            final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, 20));
+            final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, 22));
+            final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, 24));
             final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, 26));
-            final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, 28));
+            final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, 28));
             final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, 30));
             res.add(
                     new OrpheInsoleValue(
