@@ -50,6 +50,8 @@ public class Orphe {
 
     private int mLatestSerialNumber;
     private LocalDateTime mLatestSerialNumberTime;
+    
+    private boolean mDebugMode;
 
     /**
      * 加速度レンジ
@@ -132,13 +134,15 @@ public class Orphe {
      * @param sidePosition この[Orphe]に対応する取り付け位置
      * @param accRange 加速度レンジの設定
      * @param gyroRange ジャイロレンジの設定
+     * @param debugMode デバッグモード
      */
-    public Orphe(@NonNull final Context context, @NonNull final OrpheCoreCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
+    public Orphe(@NonNull final Context context, @NonNull final OrpheCoreCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange, boolean debugMode) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
         this.accRange = accRange;
         this.gyroRange = gyroRange;
+        mDebugMode = debugMode;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -149,6 +153,21 @@ public class Orphe {
             }
         }
         mBluetoothDevice = null;
+    }
+
+    /**
+     * ORPHE COREを管理します。
+     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+     * [disconnect]で切断します。
+     *
+     * @param context コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition この[Orphe]に対応する取り付け位置
+     * @param accRange 加速度レンジの設定
+     * @param gyroRange ジャイロレンジの設定
+     */
+    public Orphe(@NonNull final Context context, @NonNull final OrpheCoreCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
+        this(context, orpheCallback, sidePosition, accRange, gyroRange, false);
     }
 
     /**
