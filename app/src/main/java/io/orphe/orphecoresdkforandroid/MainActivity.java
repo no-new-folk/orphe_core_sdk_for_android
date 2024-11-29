@@ -17,9 +17,11 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import io.orphe.orphecoresdk.DeviceInfoValue;
 import io.orphe.orphecoresdk.Orphe;
+import io.orphe.orphecoresdk.OrpheAccRange;
 import io.orphe.orphecoresdk.OrpheBatteryStatus;
 import io.orphe.orphecoresdk.OrpheCallback;
 import io.orphe.orphecoresdk.OrpheCoreStatus;
+import io.orphe.orphecoresdk.OrpheGyroRange;
 import io.orphe.orphecoresdk.OrpheInsole;
 import io.orphe.orphecoresdk.OrpheInsoleCallback;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
@@ -213,8 +215,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mPermissionGranted = true;
         }
-        mOrpheLeft = new OrpheInsole(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar);
-        mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar);
+        mOrpheLeft = new OrpheInsole(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true);
+        mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true);
         changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
         changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
         changeButtonState(mGetLatestValueButtonLeft, OrpheCoreStatus.none);

@@ -58,6 +58,7 @@ public class OrpheInsole {
     private int mLatestSerialNumber;
     private LocalDateTime mLatestSerialNumberTime;
 
+    private boolean mDebugMode;
 
     /**
      * 加速度レンジ
@@ -144,13 +145,15 @@ public class OrpheInsole {
      * @param sidePosition  この[Orphe]に対応する取り付け位置
      * @param accRange      加速度レンジの設定
      * @param gyroRange     ジャイロレンジの設定
+     * @param debugMode     デバッグモード
      */
-    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange, boolean debugMode) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
         this.accRange = accRange;
         this.gyroRange = gyroRange;
+        this.mDebugMode = debugMode;
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -161,6 +164,21 @@ public class OrpheInsole {
             }
         }
         mBluetoothDevice = null;
+    }
+    
+    /**
+     * ORPHE INSOLEを管理します。
+     * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
+     * [disconnect]で切断します。
+     *
+     * @param context       コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition  この[Orphe]に対応する取り付け位置
+     * @param accRange      加速度レンジの設定
+     * @param gyroRange     ジャイロレンジの設定
+     */
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange) {
+        this(context, orpheCallback, sidePosition, accRange, gyroRange, false);
     }
 
     /**
@@ -720,6 +738,9 @@ public class OrpheInsole {
         @RequiresApi(api = Build.VERSION_CODES.O)
         private void onRead(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
+            if(mDebugMode){
+                Log.d(TAG, "onRead:" + characteristic.getUuid().toString() + " " + bytesToHex(value));
+            }
             // DeviceInfo
             if (GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.equals(characteristic.getUuid())) {
                 // Data
@@ -753,6 +774,9 @@ public class OrpheInsole {
         @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
+            if(mDebugMode){
+                Log.d(TAG, "onNotified:" + characteristic.getUuid().toString() + " " + bytesToHex(value));
+            }
             // 歩容解析
             // if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {
             //    mOrpheCallback.gotData(value);
