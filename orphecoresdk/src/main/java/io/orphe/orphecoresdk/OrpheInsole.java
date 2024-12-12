@@ -467,7 +467,10 @@ public class OrpheInsole {
             Log.e(TAG, "You cannot send more than 30 requests.");
         }
         int i = 0;
-        final byte[] byteList = new byte[requests.length * 4 + 2];
+        final byte[] byteList = new byte[122];
+        for(int j = 0; j < 122; j++) {
+            byteList[j] = 0;
+        }
         byteList[i] = 11;
         i++;
         byteList[i] = 2;

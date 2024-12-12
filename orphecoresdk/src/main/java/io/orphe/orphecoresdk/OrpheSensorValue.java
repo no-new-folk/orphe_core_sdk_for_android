@@ -67,7 +67,7 @@ public class OrpheSensorValue {
     @NonNull final double normalizedAccZ,
 
     /// 正規化されたジャイロによる角度の範囲
-    @NonNull  final double normalizedGyroX,
+    @NonNull final double normalizedGyroX,
     @NonNull final double normalizedGyroY,
     @NonNull final double normalizedGyroZ,
 
