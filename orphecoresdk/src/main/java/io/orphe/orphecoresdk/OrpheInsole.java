@@ -396,11 +396,21 @@ public class OrpheInsole {
 
 
     /**
+     * センサーの取得モードを設定します。
+     *
+     * @param mode センサーの取得モード
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void setSensorRequestMode(OrpheSensorRequestMode mode) {
+        setDeviceInfo(new byte[]{13, (byte) mode.value});
+    }
+    
+    /**
      * 現在の生データのシリアルナンバーを取得します。
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void getCurrentSerialNumber() {
-        setDeviceInfo(new byte[]{11, 1});
+        setDeviceInfo(new byte[]{13, 1});
     }
 
     /**
@@ -777,7 +787,7 @@ public class OrpheInsole {
         @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
-            if(mDebugMode){
+            if (mDebugMode) {
                 Log.d(TAG, "onNotified:" + characteristic.getUuid().toString() + " " + bytesToHex(value));
             }
             // 歩容解析
@@ -809,6 +819,8 @@ public class OrpheInsole {
                                         }
                                         break;
                                     case 54:
+                                    case 55:
+                                    case 56:
                                         final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange);
                                         mOrpheCallback.gotInsoleValues(values);
                                         if (values.length > 0) {

@@ -378,11 +378,21 @@ public class Orphe {
     }
 
     /**
+     * センサーの取得モードを設定します。
+     *
+     * @param mode センサーの取得モード
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void setSensorRequestMode(OrpheSensorRequestMode mode) {
+        setDeviceInfo(new byte[]{13, (byte) mode.value});
+    }
+    
+    /**
      * 現在の生データのシリアルナンバーを取得します。
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void getCurrentSerialNumber() {
-        setDeviceInfo(new byte[]{11, 1});
+        setDeviceInfo(new byte[]{13, 1});
     }
 
     /**
@@ -747,6 +757,8 @@ public class Orphe {
                                         }
                                         break;
                                     case 54:
+                                    case 55:
+                                    case 56:
                                         final OrpheSensorValue[] values = OrpheSensorValue.fromBytes(value, sidePosition, accRange, gyroRange);
                                         mOrpheCallback.gotSensorValues(values);
                                         if (values.length > 0) {

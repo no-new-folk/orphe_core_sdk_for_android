@@ -159,6 +159,15 @@ ORPHE COREに接続するためのJava SDKを提供します。
     mOrpheInsole.getDeviceInfo();
     ```
 
+- リアルタイムモードへの切り替えは`setSensorRequestMode`を呼び出すことで可能です。
+    - リセットされるともとに戻るため接続時に１度だけ実行することを推奨します。
+    - また接続後即座に変更メソッドを実行するとうまくいかない場合があるので2秒〜3秒ほど遅延させることを推奨します。
+    - インソール（圧力込み）用のリアルタイムモードは`OrpheSensorRequestMode.realtimeForInsole`と指定します。
+
+    ```
+    mOrpheInsole.setSensorRequestMode(OrpheSensorRequestMode.realtimeForInsole);
+    ```
+
 
 ### ORPHE COREの場合
 
