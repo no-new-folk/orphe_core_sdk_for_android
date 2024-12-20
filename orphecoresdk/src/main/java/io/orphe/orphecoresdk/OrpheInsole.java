@@ -402,7 +402,7 @@ public class OrpheInsole {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setSensorRequestMode(OrpheSensorRequestMode mode) {
-        setDeviceInfo(new byte[]{13, mode.value});
+        setDeviceInfo(new byte[]{13, (byte) mode.value});
     }
     
     /**
@@ -787,7 +787,7 @@ public class OrpheInsole {
         @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final Handler mainHandler = new Handler(Looper.getMainLooper());
-            if(mDebugMode){
+            if (mDebugMode) {
                 Log.d(TAG, "onNotified:" + characteristic.getUuid().toString() + " " + bytesToHex(value));
             }
             // 歩容解析

@@ -203,10 +203,11 @@ public class OrpheInsoleValue {
         switch (getUint8(bytes, 0)) {
             case 51:
             case 52:
-            case 53:
+            case 53: {
                 return new OrpheInsoleValue[0];
+            }
             case 54:
-            case 55:
+            case 55: {
                 index = 2;
 
                 final int serialNumber = getUint16(bytes, 1);
@@ -237,13 +238,13 @@ public class OrpheInsoleValue {
                     final double accX = parseInt(bytes, index + 6) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
-                    // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 20) + "ToeInside: " + parseInt(bytes, 24) +"MidOutside: " +  parseInt(bytes, 22) + "pressureCenter: " + parseInt(bytes, 26) + "pressureMidInside: " + parseInt(bytes, 28) + "Heel" +  parseInt(bytes, 30));
-                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, 12));
-                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, 14));
-                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, 16));
-                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, 18));
-                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, 20));
-                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, 22));
+                    // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 16) + "ToeInside: " + parseInt(bytes, 12) +"MidOutside: " +  parseInt(bytes, 20) + "Center: " + parseInt(bytes, 18) + "MidInside: " + parseInt(bytes, 14) + "Heel" +  parseInt(bytes, 22));
+                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, index + 12));
+                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, index + 14));
+                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, index + 16));
+                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, index + 18));
+                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, index + 20));
+                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, index + 22));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
@@ -267,8 +268,9 @@ public class OrpheInsoleValue {
                             )
                     );
                 }
-                break;
-            case 56:
+            }
+            break;
+            case 56: {
                 index = 2;
 
                 final int serialNumber = getUint16(bytes, 1);
@@ -289,10 +291,10 @@ public class OrpheInsoleValue {
                             : 5 * 1000;
                     final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
                     // TODO: 計算で出力
-                    final double quatW = parseInt(bytes,index) / 16384.0;
-                    final double quatX = parseInt(bytes,index + 2) / 16384.0;
-                    final double quatY = parseInt(bytes,index + 4) / 16384.0;
-                    final double quatZ = parseInt(bytes,index + 6) / 16384.0;
+                    final double quatW = parseInt(bytes, index) / 16384.0;
+                    final double quatX = parseInt(bytes, index + 2) / 16384.0;
+                    final double quatY = parseInt(bytes, index + 4) / 16384.0;
+                    final double quatZ = parseInt(bytes, index + 6) / 16384.0;
                     final double gyroX = parseInt(bytes, index + 8) / (double) (1 << 15) * gyroRange.value;
                     final double gyroY = parseInt(bytes, index + 10) / (double) (1 << 15) * gyroRange.value;
                     final double gyroZ = parseInt(bytes, index + 12) / (double) (1 << 15) * gyroRange.value;
@@ -300,12 +302,12 @@ public class OrpheInsoleValue {
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
                     // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 20) + "ToeInside: " + parseInt(bytes, 24) +"MidOutside: " +  parseInt(bytes, 22) + "pressureCenter: " + parseInt(bytes, 26) + "pressureMidInside: " + parseInt(bytes, 28) + "Heel" +  parseInt(bytes, 30));
-                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, 20));
-                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, 22));
-                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, 24));
-                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, 26));
-                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, 28));
-                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, 30));
+                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, index + 20));
+                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, index + 22));
+                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, index + 24));
+                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, index + 26));
+                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, index + 28));
+                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, index + 30));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
@@ -328,11 +330,12 @@ public class OrpheInsoleValue {
                                     quatW,
                                     quatX,
                                     quatY,
-                                    quatZ,
-                            )
+                                    quatZ
+                                    )
                     );
                 }
-                break;
+            }
+            break;
         }
         final OrpheInsoleValue[] array = new OrpheInsoleValue[res.size()];
         return res.toArray(array);

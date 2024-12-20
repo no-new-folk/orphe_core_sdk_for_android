@@ -198,38 +198,39 @@ public class OrpheSensorValue {
         switch (getUint8(bytes, 0)) {
             case 51:
             case 52:
-            case 53:
+            case 53: {
                 return new OrpheSensorValue[0];
-            case 50:
+            }
+            case 50: {
                 index = 2;
 
-                final int serialNumber = parseInt(bytes,1);
-                final LocalDateTime now =  LocalDateTime.now();
+                final int serialNumber = parseInt(bytes, 1);
+                final LocalDateTime now = LocalDateTime.now();
                 final LocalDateTime baseTimestamp = LocalDateTime.of(
                         now.getYear(),
                         now.getMonth(),
                         now.getDayOfMonth(),
-                        getUint8(bytes,3),
-                        getUint8(bytes,4),
-                        getUint8(bytes,5),
-                        getUint8(bytes,6) * 1000
-                        );
+                        getUint8(bytes, 3),
+                        getUint8(bytes, 4),
+                        getUint8(bytes, 5),
+                        getUint8(bytes, 6) * 1000
+                );
                 for (int s = 3; s >= 0; s--) {
                     index = s * 21 + 8;
                     final long duration = s == 0
                             ? 0
                             : getUint8(bytes, index - 1) * 1000;
-                    final LocalDateTime timestamp = baseTimestamp.plusNanos (duration);
-                    final double quatW = parseInt(bytes,index) / 16384.0;
-                    final double quatX =  parseInt(bytes,index + 2) / 16384.0;
-                    final double quatY = parseInt(bytes,index + 4) / 16384.0;
-                    final double quatZ =  parseInt(bytes,index + 6) / 16384.0;
-                    final double gyroX = parseInt(bytes,index + 8) / (double)(1 << 15) * gyroRange.value;
-                    final double gyroY = parseInt(bytes,index + 10) / (double)(1 << 15) * gyroRange.value;
-                    final double gyroZ =  parseInt(bytes,index + 12) / (double)(1 << 15) * gyroRange.value;
-                    final double accX = parseInt(bytes,index + 14) / (double)(1 << 15) * accRange.value;
-                    final double accY =  parseInt(bytes,index + 16) / (double)(1 << 15) * accRange.value;
-                    final double accZ =  parseInt(bytes,index + 18) / (double)(1 << 15) * accRange.value;
+                    final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
+                    final double quatW = parseInt(bytes, index) / 16384.0;
+                    final double quatX = parseInt(bytes, index + 2) / 16384.0;
+                    final double quatY = parseInt(bytes, index + 4) / 16384.0;
+                    final double quatZ = parseInt(bytes, index + 6) / 16384.0;
+                    final double gyroX = parseInt(bytes, index + 8) / (double) (1 << 15) * gyroRange.value;
+                    final double gyroY = parseInt(bytes, index + 10) / (double) (1 << 15) * gyroRange.value;
+                    final double gyroZ = parseInt(bytes, index + 12) / (double) (1 << 15) * gyroRange.value;
+                    final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
+                    final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
+                    final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
                     final double eulerX = toEulerX(quatW, quatX, quatY, quatZ);
                     final double eulerY = toEulerY(quatW, quatX, quatY, quatZ);
                     final double eulerZ = toEulerZ(quatW, quatX, quatY, quatZ);
@@ -278,11 +279,12 @@ public class OrpheSensorValue {
                                     false,
                                     0,
                                     false
-                                )
+                            )
                     );
                 }
-                break;
-            case 54:
+            }
+            break;
+            case 54: {
                 index = 2;
 
                 final int serialNumber = getUint16(bytes, 1);
@@ -364,7 +366,8 @@ public class OrpheSensorValue {
                             )
                     );
                 }
-                break;
+            }
+            break;
         }
         final OrpheSensorValue[] array = new OrpheSensorValue[res.size()];
         return res.toArray(array);

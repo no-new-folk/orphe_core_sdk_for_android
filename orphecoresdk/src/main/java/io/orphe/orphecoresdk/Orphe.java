@@ -384,7 +384,7 @@ public class Orphe {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setSensorRequestMode(OrpheSensorRequestMode mode) {
-        setDeviceInfo(new byte[]{13, mode.value});
+        setDeviceInfo(new byte[]{13, (byte) mode.value});
     }
     
     /**

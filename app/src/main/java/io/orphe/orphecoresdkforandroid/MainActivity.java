@@ -7,6 +7,8 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.TextView;
@@ -25,6 +27,7 @@ import io.orphe.orphecoresdk.OrpheGyroRange;
 import io.orphe.orphecoresdk.OrpheInsole;
 import io.orphe.orphecoresdk.OrpheInsoleCallback;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
+import io.orphe.orphecoresdk.OrpheSensorRequestMode;
 import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
@@ -55,9 +58,6 @@ public class MainActivity extends AppCompatActivity {
             if (values != null && values.length > 0) {
                 if (mValueResultViewLeft != null) {
                     mValueResultViewLeft.setText(values[0].toString());
-                    //for(int i = values.length - 1; i>= 0; i--) {
-                    //    Log.d(TAG, values[i].toString());
-                    //}
                 }
             }
         }
@@ -100,6 +100,13 @@ public class MainActivity extends AppCompatActivity {
                 changeButtonState(mGetLatestValueButtonLeft, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewLeft.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
+                // インソール用のリアルタイムモードに設定
+                // 2秒〜3秒ほど遅延させないとうまく書き込めない
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        mOrpheLeft.setSensorRequestMode(OrpheSensorRequestMode.realtimeForInsole);
+                    }, 2000);
+                }
             }
         }
 
@@ -160,6 +167,13 @@ public class MainActivity extends AppCompatActivity {
                 changeButtonState(mGetLatestValueButtonRight, OrpheCoreStatus.connected);
                 mConnectionStatusTextViewRight.setText(
                         String.format("%s：機器に接続されました", bluetoothDevice.getName()));
+                // インソール用のリアルタイムモードに設定
+                // 2秒〜3秒ほど遅延させないとうまく書き込めない
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                        mOrpheRight.setSensorRequestMode(OrpheSensorRequestMode.realtimeForInsole);
+                    }, 2000);
+                }
             }
         }
 
