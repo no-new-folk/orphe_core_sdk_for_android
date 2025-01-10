@@ -239,12 +239,12 @@ public class OrpheInsoleValue {
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
                     // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 16) + "ToeInside: " + parseInt(bytes, 12) +"MidOutside: " +  parseInt(bytes, 20) + "Center: " + parseInt(bytes, 18) + "MidInside: " + parseInt(bytes, 14) + "Heel" +  parseInt(bytes, 22));
-                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, index + 12));
-                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, index + 14));
-                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, index + 16));
-                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, index + 18));
-                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, index + 20));
-                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, index + 22));
+                    final double pressureToeInside = milliVoltToNewton((double) getUint16(bytes, index + 12));
+                    final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 14));
+                    final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 16));
+                    final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 18));
+                    final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 20));
+                    final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 22));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
@@ -302,12 +302,12 @@ public class OrpheInsoleValue {
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
                     // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 20) + "ToeInside: " + parseInt(bytes, 24) +"MidOutside: " +  parseInt(bytes, 22) + "pressureCenter: " + parseInt(bytes, 26) + "pressureMidInside: " + parseInt(bytes, 28) + "Heel" +  parseInt(bytes, 30));
-                    final double pressureToeInside = milliVoltToNewton((double) parseInt(bytes, index + 20));
-                    final double pressureMidInside = milliVoltToNewton((double) parseInt(bytes, index + 22));
-                    final double pressureToeOutside = milliVoltToNewton((double) parseInt(bytes, index + 24));
-                    final double pressureCenter = milliVoltToNewton((double) parseInt(bytes, index + 26));
-                    final double pressureMidOutside = milliVoltToNewton((double) parseInt(bytes, index + 28));
-                    final double pressureHeel = milliVoltToNewton((double) parseInt(bytes, index + 30));
+                    final double pressureToeInside = milliVoltToNewton((double) getUint16(bytes, index + 20));
+                    final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 22));
+                    final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 24));
+                    final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 26));
+                    final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 28));
+                    final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 30));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
