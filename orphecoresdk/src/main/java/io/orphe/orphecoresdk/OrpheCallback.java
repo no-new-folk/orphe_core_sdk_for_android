@@ -36,9 +36,9 @@ public interface OrpheCallback {
     /**
      * スキャンされたときのコールバック。
      *
-     * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。
+     * @param scanedDevice スキャンされたOrpheScanedDeviceが渡されます。
      */
-    void onScan(BluetoothDevice bluetoothDevice);
+    void onScan(OrpheScanedDevice scanedDevice);
 
     /**
      * 接続されたときのコールバック。

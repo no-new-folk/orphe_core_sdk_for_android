@@ -1,5 +1,13 @@
 # Change Log
 
+## 2025-03-03
+
+### Changes
+
+---
+
+- **FEAT**: スキャンデータを`OrpheScanedDevice`に変更し、デバイスIDを取得可能にした。
+
 ## 2025-01-10
 
 ### Changes

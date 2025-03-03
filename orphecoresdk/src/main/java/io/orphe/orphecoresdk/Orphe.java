@@ -523,7 +523,7 @@ public class Orphe {
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(device);
+                mOrpheCallback.onScan(new OrpheScanedDevice(device, deviceName));
             }
         }
     };

@@ -49,9 +49,9 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
     /**
      * スキャンされたときのコールバック。
      *
-     * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。
+     * @param scanedDevice スキャンされたOrpheScanedDeviceが渡されます。
      */
-    public void onScan(BluetoothDevice bluetoothDevice) {
+    public void onScan(OrpheScanedDevice scanedDevice) {
     }
 
     /**

@@ -27,6 +27,7 @@ import io.orphe.orphecoresdk.OrpheGyroRange;
 import io.orphe.orphecoresdk.OrpheInsole;
 import io.orphe.orphecoresdk.OrpheInsoleCallback;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
+import io.orphe.orphecoresdk.OrpheScanedDevice;
 import io.orphe.orphecoresdk.OrpheSensorRequestMode;
 import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSidePosition;
@@ -76,14 +77,15 @@ public class MainActivity extends AppCompatActivity {
 
         @SuppressLint("MissingPermission")
         @Override
-        public void onScan(BluetoothDevice bluetoothDevice) {
-
+        public void onScan(OrpheScanedDevice scanedDevice) {
+            final BluetoothDevice bluetoothDevice = scanedDevice.bluetoothDevice;
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
                     mFoundDeviceLeft = bluetoothDevice;
+                    final String deviceId = scanedDevice.deviceId;
                     changeButtonState(mConnectButtonLeft, OrpheCoreStatus.scanned);
                     mConnectionStatusTextViewLeft.setText(
-                            String.format("%s：機器が見つかりました", bluetoothDevice.getName()));
+                            String.format("%s：機器が見つかりました", deviceId));
                 } else {
                     mFoundDeviceLeft = null;
                     changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
@@ -144,13 +146,15 @@ public class MainActivity extends AppCompatActivity {
 
         @SuppressLint("MissingPermission")
         @Override
-        public void onScan(BluetoothDevice bluetoothDevice) {
+        public void onScan(OrpheScanedDevice scanedDevice) {
+            final BluetoothDevice bluetoothDevice = scanedDevice.bluetoothDevice;
             if (mConnectionStatusTextViewRight != null) {
                 changeButtonState(mConnectButtonRight, OrpheCoreStatus.scanned);
                 if (bluetoothDevice != null) {
                     mFoundDeviceRight = bluetoothDevice;
+                    final String deviceId = scanedDevice.deviceId;
                     mConnectionStatusTextViewRight.setText(
-                            String.format("%s：機器が見つかりました", bluetoothDevice.getName()));
+                            String.format("%s：機器が見つかりました", deviceId));
                 } else {
                     mFoundDeviceRight = null;
                     changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
