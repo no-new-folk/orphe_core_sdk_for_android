@@ -216,7 +216,7 @@ public class OrpheInsole {
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
-                mOrpheCallback.onScan(null);
+                mOrpheCallback.onScan(null, null);
             }
         }, SCAN_PERIOD);
 
@@ -542,7 +542,7 @@ public class OrpheInsole {
             if (manufacturerData == null) {
                 return;
             }
-            final String deviceName = device.getName();
+            String deviceName = device.getName();
             // TODO: 暫定的にManufacturerDataから探す
             if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
                 // 左右情報が一致しない場合は排除
@@ -552,7 +552,8 @@ public class OrpheInsole {
                     return;
                 }
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(device);
+                deviceName = formatInsoleId(manufacturerData);
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
                 return;
             }
             // 左右情報が一致しない場合は排除
@@ -566,7 +567,7 @@ public class OrpheInsole {
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(device);
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
             }
         }
     };
@@ -838,4 +839,15 @@ public class OrpheInsole {
             }
         }
     };
+
+
+    private static String formatInsoleId(@NonNull byte[] data) {
+        long number = getUint32(data, 1);
+        char side = (data[6] == 0) ? 'L' : 'R';
+        return String.format("IN%08d%c", number, side);
+    }
+
+    private static long getUint32(@NonNull byte[] data, int index) {
+        return (long) (((data[index] & 0xFF) << 24) | ((data[index + 1] & 0xFF) << 16) | ((data[index + 2] & 0xFF) << 8) | (data[index + 3] & 0xFF));
+    }
 }
