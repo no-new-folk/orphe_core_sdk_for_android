@@ -216,7 +216,7 @@ public class OrpheInsole {
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
-                mOrpheCallback.onScan(null);
+                mOrpheCallback.onScan(null, null);
             }
         }, SCAN_PERIOD);
 
@@ -553,7 +553,7 @@ public class OrpheInsole {
                 }
                 mBluetoothDevice = device;
                 deviceName = formatInsoleId(manufacturerData);
-                mOrpheCallback.onScan(new OrpheScanedDevice(device, deviceName));
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
                 return;
             }
             // 左右情報が一致しない場合は排除
@@ -567,7 +567,7 @@ public class OrpheInsole {
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(new OrpheScanedDevice(device, deviceName));
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
             }
         }
     };

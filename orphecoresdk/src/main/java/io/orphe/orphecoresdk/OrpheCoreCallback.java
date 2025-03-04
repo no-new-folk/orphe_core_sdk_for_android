@@ -49,9 +49,10 @@ public abstract class OrpheCoreCallback implements OrpheCallback {
     /**
      * スキャンされたときのコールバック。
      *
-     * @param scanedDevice スキャンされたOrpheScanedDeviceが渡されます。
+     * @param bluetoothDevice スキャンされたBluetoothDeviceが渡されます。
+     * @param meta スキャンされたメタデータが渡されます。
      */
-    public void onScan(OrpheScanedDevice scanedDevice) {
+    public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
     }
 
     /**

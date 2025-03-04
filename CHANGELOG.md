@@ -6,7 +6,7 @@
 
 ---
 
-- **FEAT**: スキャンデータを`OrpheScanedDevice`に変更し、デバイスIDを取得可能にした。
+- **FEAT**: スキャンデータに`OrpheScanedMeta`に変更し、デバイスIDを取得可能にした。
 
 ## 2025-01-10
 

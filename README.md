@@ -69,11 +69,10 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
         @SuppressLint("MissingPermission")
         @Override
-        public void onScan(OrpheScanedDevice scanedDevice) {
-            final BluetoothDevice bluetoothDevice = scanedDevice.bluetoothDevice;
+        public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
-                    final String deviceId = scanedDevice.deviceId;
+                    final String deviceId = meta.deviceId;
                     Log.d(TAG, String.format("%s：機器が見つかりました", deviceId));
                 } else {
                     Log.d(TAG, "機器が見つかりませんでした");
@@ -114,12 +113,14 @@ ORPHE COREに接続するためのJava SDKを提供します。
 - ORPHE INSOLEのリセットボタンを押し光らせます。
     - 光った場合はアドバタイズしている状態になります。
 
-- `OrpheInsoleCallback`の`onScan`に見つかったアドバタイズ中のORPHE INSOLEの`OrpheScanedDevice`オブジェクトが渡されます。
+- `OrpheInsoleCallback`の`onScan`に見つかったアドバタイズ中のORPHE INSOLEの`BluetoothDevice`オブジェクトが渡されます。
 
-- `OrpheInsoleCallback`の`onScan`で渡された`OrpheScanedDevice`中の`bluetoothDevice`を`OrpheInsole`オブジェクトの`connect`に渡すことで接続されます。
+- `OrpheInsoleCallback`の`onScan`で渡された`BluetoothDevice`を`OrpheInsole`オブジェクトの`connect`に渡すことで接続されます。
     ```
     mOrpheInsole.connect(mBluetoothDevice);
     ```
+  
+    - `OrpheScanedMeta`の`deviceId`を参照することでデバイスIDを取得できます。
 
 - 接続後`OrpheInsoleCallback`の`onConnect`のコールバックが呼び出されます。
 
@@ -189,11 +190,10 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
         @SuppressLint("MissingPermission")
         @Override
-        public void onScan(OrpheScanedDevice scanedDevice) {
-            final BluetoothDevice bluetoothDevice = scanedDevice.bluetoothDevice;
+        public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
-                    final String deviceId = scanedDevice.deviceId;
+                    final String deviceId = meta.deviceId;
                     Log.d(TAG, String.format("%s：機器が見つかりました", deviceId));
                 } else {
                     Log.d(TAG, "機器が見つかりませんでした");
@@ -234,12 +234,14 @@ ORPHE COREに接続するためのJava SDKを提供します。
 - ORPHE COREを振り光らせます。
     - 光った場合はアドバタイズしている状態になります。
 
-- `OrpheCoreCallback`の`onScan`に見つかったアドバタイズ中のORPHE COREの`OrpheScanedDevice`オブジェクトが渡されます。
+- `OrpheCoreCallback`の`onScan`に見つかったアドバタイズ中のORPHE COREの`BluetoothDevice`オブジェクトが渡されます。
 
-- `OrpheCoreCallback`の`onScan`で渡された`OrpheScanedDevice`中の`bluetoothDevice`を`Orphe`オブジェクトの`connect`に渡すことで接続されます。
+- `OrpheCoreCallback`の`onScan`で渡された`BluetoothDevice`を`Orphe`オブジェクトの`connect`に渡すことで接続されます。
     ```
     mOrphe.connect(mBluetoothDevice);
     ```
+
+    - `OrpheScanedMeta`の`deviceId`を参照することでデバイスIDを取得できます。
 
 - 接続後`OrpheCoreCallback`の`onConnect`のコールバックが呼び出されます。
 

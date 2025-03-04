@@ -204,7 +204,7 @@ public class Orphe {
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
-                mOrpheCallback.onScan(null);
+                mOrpheCallback.onScan(null, null);
             }
         }, SCAN_PERIOD);
 
@@ -523,7 +523,7 @@ public class Orphe {
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(new OrpheScanedDevice(device, deviceName));
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
             }
         }
     };
