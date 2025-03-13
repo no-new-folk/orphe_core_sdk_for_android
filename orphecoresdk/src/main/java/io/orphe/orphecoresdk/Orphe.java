@@ -204,6 +204,7 @@ public class Orphe {
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
+                mStatus = OrpheCoreStatus.none;
                 mOrpheCallback.onScan(null, null);
             }
         }, SCAN_PERIOD);
@@ -516,6 +517,9 @@ public class Orphe {
         @Override
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
+            if(device == null){
+                return;
+            }
             final String deviceName = device.getName();
             Log.d(TAG, "onScanResult:" + deviceName);
             if(deviceName == null){

@@ -216,6 +216,7 @@ public class OrpheInsole {
         mHandler.postDelayed(() -> {
             if (mStatus == OrpheCoreStatus.scanned) {
                 mBluetoothLeScanner.stopScan(scanCallback);
+                mStatus = OrpheCoreStatus.none;
                 mOrpheCallback.onScan(null, null);
             }
         }, SCAN_PERIOD);
@@ -539,7 +540,7 @@ public class OrpheInsole {
             final BluetoothDevice device = result.getDevice();
             final ScanRecord record = result.getScanRecord();
             final byte[] manufacturerData = record.getManufacturerSpecificData(0);
-            if (manufacturerData == null) {
+            if (device == null || manufacturerData == null) {
                 return;
             }
             String deviceName = device.getName();

@@ -87,9 +87,9 @@ public class MainActivity extends AppCompatActivity {
                     mConnectionStatusTextViewLeft.setText(
                             String.format("%s：機器が見つかりました", deviceId));
                 } else {
-                    mFoundDeviceLeft = null;
-                    changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
-                    mConnectionStatusTextViewLeft.setText("機器が見つかりませんでした");
+                   //  mFoundDeviceLeft = null;
+                    // changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
+                    mConnectionStatusTextViewLeft.setText("タイムアウト");
                 }
             }
         }
@@ -157,7 +157,7 @@ public class MainActivity extends AppCompatActivity {
                 } else {
                     mFoundDeviceRight = null;
                     changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
-                    mConnectionStatusTextViewRight.setText("機器が見つかりませんでした");
+                    mConnectionStatusTextViewRight.setText("タイムアウト");
                 }
             }
         }
@@ -240,7 +240,7 @@ public class MainActivity extends AppCompatActivity {
         changeButtonState(mGetLatestValueButtonRight, OrpheCoreStatus.none);
         mConnectButtonLeft.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheLeft.status();
-            if(status == OrpheCoreStatus.scanned && mFoundDeviceLeft != null){
+            if(mFoundDeviceLeft != null){
                 mOrpheLeft.connect(mFoundDeviceLeft);
             } else if(status == OrpheCoreStatus.connected){
                 mOrpheLeft.disconnect();
@@ -248,7 +248,7 @@ public class MainActivity extends AppCompatActivity {
         });
         mConnectButtonRight.setOnClickListener(v -> {
             final OrpheCoreStatus status = mOrpheRight.status();           
-            if(status == OrpheCoreStatus.scanned && mFoundDeviceRight != null){
+            if(mFoundDeviceRight != null){
                 mOrpheRight.connect(mFoundDeviceRight);
             } else if(status == OrpheCoreStatus.connected){
                 mOrpheRight.disconnect();
