@@ -845,7 +845,7 @@ public class OrpheInsole {
     private static String formatInsoleId(@NonNull byte[] data) {
         long number = getUint32(data, 1);
         char side = (data[6] == 0) ? 'L' : 'R';
-        return String.format("IN%08d%c", number, side);
+        return String.format("IN%08X%c", number, side);
     }
 
     private static long getUint32(@NonNull byte[] data, int index) {
