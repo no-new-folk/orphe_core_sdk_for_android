@@ -554,7 +554,8 @@ public class OrpheInsole {
                 }
                 mBluetoothDevice = device;
                 deviceName = formatInsoleId(manufacturerData);
-                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
+                OrpheInsoleChargeStatus chargeStatus = OrpheInsoleChargeStatus.fromValue(manufacturerData[14]);
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName, chargeStatus));
                 return;
             }
             // 左右情報が一致しない場合は排除

@@ -8,11 +8,25 @@ public class OrpheScanedMeta {
      * ORPHEのスキャンデータを保存するためのデータ
      *
      * @param deviceId デバイスID
+     * @param chargeStatus インソールの充電ステータス
+     */
+    public OrpheScanedMeta(
+            String deviceId,
+            OrpheInsoleChargeStatus chargeStatus
+    ) {
+        this.deviceId = deviceId;
+        this.chargeStatus = chargeStatus;
+    }
+
+    /**
+     * ORPHEのスキャンデータを保存するためのデータ
+     *
+     * @param deviceId デバイスID
      */
     public OrpheScanedMeta(
             String deviceId
-    ) {
-        this.deviceId = deviceId;
+            ) {
+        this(deviceId, null);
     }
 
     /**
@@ -20,7 +34,7 @@ public class OrpheScanedMeta {
      */
     public OrpheScanedMeta(
     ) {
-        this(null);
+        this(null, null);
     }
 
 
@@ -28,4 +42,9 @@ public class OrpheScanedMeta {
      * デバイスID
      */
     public final String deviceId;
+
+    /**
+     * インソールの充電ステータス
+     */
+    public final OrpheInsoleChargeStatus chargeStatus;
 }

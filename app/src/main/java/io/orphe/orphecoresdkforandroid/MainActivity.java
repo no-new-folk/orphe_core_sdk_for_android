@@ -26,6 +26,7 @@ import io.orphe.orphecoresdk.OrpheCoreStatus;
 import io.orphe.orphecoresdk.OrpheGyroRange;
 import io.orphe.orphecoresdk.OrpheInsole;
 import io.orphe.orphecoresdk.OrpheInsoleCallback;
+import io.orphe.orphecoresdk.OrpheInsoleChargeStatus;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheScanedMeta;
 import io.orphe.orphecoresdk.OrpheScanedMeta;
@@ -82,10 +83,11 @@ public class MainActivity extends AppCompatActivity {
             if (mConnectionStatusTextViewLeft != null) {
                 if (bluetoothDevice != null) {
                     mFoundDeviceLeft = bluetoothDevice;
-                    final String deviceId = meta.deviceId;
                     changeButtonState(mConnectButtonLeft, OrpheCoreStatus.scanned);
-                    mConnectionStatusTextViewLeft.setText(
-                            String.format("%s：機器が見つかりました", deviceId));
+                    final String deviceId = meta.deviceId;
+                    final OrpheInsoleChargeStatus chargeStatus = meta.chargeStatus;
+                    mConnectionStatusTextViewRight.setText(
+                            String.format("%s：機器が見つかりました. 充電(%s)", deviceId, chargeStatus.toString()));
                 } else {
                    //  mFoundDeviceLeft = null;
                     // changeButtonState(mConnectButtonLeft, OrpheCoreStatus.none);
@@ -152,8 +154,9 @@ public class MainActivity extends AppCompatActivity {
                 if (bluetoothDevice != null) {
                     mFoundDeviceRight = bluetoothDevice;
                     final String deviceId = meta.deviceId;
+                    final OrpheInsoleChargeStatus chargeStatus = meta.chargeStatus;
                     mConnectionStatusTextViewRight.setText(
-                            String.format("%s：機器が見つかりました", deviceId));
+                            String.format("%s：機器が見つかりました. 充電(%s)", deviceId, chargeStatus.toString()));
                 } else {
                     mFoundDeviceRight = null;
                     changeButtonState(mConnectButtonRight, OrpheCoreStatus.none);
