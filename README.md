@@ -121,6 +121,7 @@ ORPHE COREに接続するためのJava SDKを提供します。
     ```
   
     - `OrpheScanedMeta`の`deviceId`を参照することでデバイスIDを取得できます。
+    - `OrpheScanedMeta`の`chargeStatus`を参照することで充電の状況（Wireless or Wired）。
 
 - 接続後`OrpheInsoleCallback`の`onConnect`のコールバックが呼び出されます。
 
