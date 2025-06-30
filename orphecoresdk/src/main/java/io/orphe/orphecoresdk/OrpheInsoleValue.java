@@ -342,7 +342,7 @@ public class OrpheInsoleValue {
     }
 
     public static double milliVoltToNewton(double milliVolt, int number) {
-        if (milliVolt > 250) {
+        if (milliVolt > 240) {
             if (number == 6) {
                 // y = 2.77942 * np.exp(2.08348E-03 * x) + 4.14411
                 return 2.77942 * Math.exp(2.08348E-03 * milliVolt) + 4.14411;
