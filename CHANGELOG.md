@@ -1,6 +1,14 @@
 # Change Log
 
 
+## 2025-07-01
+
+### Changes
+
+---
+
+- **FEAT**: setCoefficientメソッドで変換係数を設定可能
+
 ## 2025-06-30
 
 ### Changes
