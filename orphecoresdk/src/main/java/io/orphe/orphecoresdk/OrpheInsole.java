@@ -25,6 +25,8 @@ import android.util.Log;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -59,6 +61,19 @@ public class OrpheInsole {
     private LocalDateTime mLatestSerialNumberTime;
 
     private boolean mDebugMode;
+
+    private Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> mCoefficientMap = new HashMap<>();
+
+    /**
+     * 圧力係数の設定
+     * @param sensorPosition センサーの取り付け位置
+     * @param coefficient 圧力係数
+     * @param value 圧力係数の値
+     */
+    public void setCoefficient(OrpheInsoleSensorPosition sensorPosition, OrpheInsoleCoefficient coefficient, double value) {
+        mCoefficientMap.computeIfAbsent(sensorPosition, k -> new HashMap<>()).put(coefficient, value);
+    }
+
 
     /**
      * 加速度レンジ
@@ -824,7 +839,7 @@ public class OrpheInsole {
                                     case 54:
                                     case 55:
                                     case 56:
-                                        final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange);
+                                        final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange, mCoefficientMap);
                                         mOrpheCallback.gotInsoleValues(values);
                                         if (values.length > 0) {
                                             mLatestValue = values[0];

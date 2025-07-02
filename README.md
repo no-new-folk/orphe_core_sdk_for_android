@@ -172,6 +172,7 @@ ORPHE COREに接続するためのJava SDKを提供します。
     mOrpheInsole.setSensorRequestMode(OrpheSensorRequestMode.realtimeForInsole);
     ```
 
+- 圧力の変換係数は`setCoefficient`メソッドで可能です。
 
 ### ORPHE COREの場合
 
