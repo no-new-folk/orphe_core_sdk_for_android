@@ -23,6 +23,7 @@ public class OrpheInsoleValue {
     private static double DEFAULT_COEFFICIENT1 = 2.77942E+00;
     private static double DEFAULT_COEFFICIENT2 = 2.08348E-03;
     private static double DEFAULT_COEFFICIENT3 = 4.14411E+00;
+    private static double DEFAULT_THRESHOLD = 240;
 
 
     /**
@@ -255,42 +256,54 @@ public class OrpheInsoleValue {
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 14), 2,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 16), 3,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 18), 4,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 20), 5,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 22), 6,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
@@ -354,42 +367,54 @@ public class OrpheInsoleValue {
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 22), 2,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 24), 3,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 26), 4,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 28), 5,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 30), 6,
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
                                     .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
                             coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3));
+                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
+                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
+                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
@@ -424,7 +449,7 @@ public class OrpheInsoleValue {
     }
 
     public static double milliVoltToNewton(double milliVolt, int number, Double coefficient1, Double coefficient2,
-            Double coefficient3) {
+            Double coefficient3, Double threshold) {
         if (coefficient1 == null || coefficient1 == 0) {
             coefficient1 = DEFAULT_COEFFICIENT1;
         }
@@ -434,7 +459,10 @@ public class OrpheInsoleValue {
         if (coefficient3 == null || coefficient3 == 0) {
             coefficient3 = DEFAULT_COEFFICIENT3;
         }
-        if (milliVolt > 240) {
+        if (threshold == null || threshold == 0) {
+            threshold = DEFAULT_THRESHOLD;
+        }
+        if (milliVolt > threshold) {
             // if (number == 6) {
                 // y = 2.77942 * np.exp(2.08348E-03 * x) + 4.14411
                 return coefficient1 * Math.exp(coefficient2 * milliVolt) + coefficient3;

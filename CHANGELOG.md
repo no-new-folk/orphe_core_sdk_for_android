@@ -1,5 +1,12 @@
 # Change Log
 
+## 2025-07-18
+
+### Changes
+
+---
+
+- **FEAT**: OrpheInsoleCoefficientにthresholdを追加
 
 ## 2025-07-01
 
