@@ -176,7 +176,7 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
         従来の`gotInsoleValues(OrpheInsoleValue[] values)`を実装している場合も変更は不要です。BestEffortでは同メソッドへ即時差分が渡されます。現在の全値だけを後から参照する場合は`OrpheInsole#getBestEffortValues()`も利用できます。
 
-        サンプルアプリではBestEffortを選ぶと200Hzへ固定され、サンプリングレート選択は無効になります。BestEffortではSDK計算値をQuaternionグラフへ表示します。`realtime`の200Hzは今回の計算対象外のため、Quaternionグラフを表示しません。
+        サンプルアプリではBestEffortを選ぶと200Hzへ固定され、サンプリングレート選択は無効になります。BestEffortではQuaternionグラフを表示しません。Quaternionグラフは`realtime`の100Hz選択時だけ表示します。
 
     - `OrpheSensorReceiveMode.request`で手動取得する場合は、接続後にセンサー値送信のリクエストを送ります。1範囲なら`requestInsoleValue(startSerialNumber, length)`、複数範囲なら`requestInsoleValue(OrpheValueRequest[])`を使用できます（最大30範囲）。
 

@@ -793,8 +793,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateQuaternionChartVisibility() {
-        final int visibility = mSamplingRate == OrpheInsoleSamplingRate.hz100
-                || mReceiveMode != OrpheSensorReceiveMode.realtime
+        final int visibility = mReceiveMode == OrpheSensorReceiveMode.realtime
+                && mSamplingRate == OrpheInsoleSamplingRate.hz100
                 ? View.VISIBLE
                 : View.GONE;
         if (mLeftQuatChart != null) {
