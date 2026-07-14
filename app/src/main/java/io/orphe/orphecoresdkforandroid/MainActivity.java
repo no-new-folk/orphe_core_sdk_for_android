@@ -732,7 +732,7 @@ public class MainActivity extends AppCompatActivity {
         ArrayAdapter<String> samplingRateAdapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
-                new String[]{"100Hz (Quaternion)", "200Hz (No Quaternion)"}
+                new String[]{"100Hz", "200Hz"}
         );
         samplingRateAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         mSamplingRateSpinner.setAdapter(samplingRateAdapter);
@@ -794,6 +794,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void updateQuaternionChartVisibility() {
         final int visibility = mSamplingRate == OrpheInsoleSamplingRate.hz100
+                || mReceiveMode != OrpheSensorReceiveMode.realtime
                 ? View.VISIBLE
                 : View.GONE;
         if (mLeftQuatChart != null) {

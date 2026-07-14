@@ -15,25 +15,37 @@ final class PressureCalibrationStorage {
     private static final String PREFERENCES_NAME = "pressure_calibrations";
     private static final String CONFIGURED = "configured";
     private static final String TOE_INSIDE_C1 = "toe_inside.c1";
+    private static final String TOE_INSIDE_C2 = "toe_inside.c2";
     private static final String TOE_INSIDE_C3 = "toe_inside.c3";
+    private static final String TOE_INSIDE_THRESHOLD = "toe_inside.threshold";
     private static final String MID_INSIDE_C1 = "mid_inside.c1";
+    private static final String MID_INSIDE_C2 = "mid_inside.c2";
     private static final String MID_INSIDE_C3 = "mid_inside.c3";
+    private static final String MID_INSIDE_THRESHOLD = "mid_inside.threshold";
     private static final String TOE_OUTSIDE_C1 = "toe_outside.c1";
+    private static final String TOE_OUTSIDE_C2 = "toe_outside.c2";
     private static final String TOE_OUTSIDE_C3 = "toe_outside.c3";
+    private static final String TOE_OUTSIDE_THRESHOLD = "toe_outside.threshold";
     private static final String CENTER_C1 = "center.c1";
+    private static final String CENTER_C2 = "center.c2";
     private static final String CENTER_C3 = "center.c3";
+    private static final String CENTER_THRESHOLD = "center.threshold";
     private static final String MID_OUTSIDE_C1 = "mid_outside.c1";
+    private static final String MID_OUTSIDE_C2 = "mid_outside.c2";
     private static final String MID_OUTSIDE_C3 = "mid_outside.c3";
+    private static final String MID_OUTSIDE_THRESHOLD = "mid_outside.threshold";
     private static final String HEEL_C1 = "heel.c1";
+    private static final String HEEL_C2 = "heel.c2";
     private static final String HEEL_C3 = "heel.c3";
+    private static final String HEEL_THRESHOLD = "heel.threshold";
 
     private static final String[] VALUE_SUFFIXES = {
-            TOE_INSIDE_C1, TOE_INSIDE_C3,
-            MID_INSIDE_C1, MID_INSIDE_C3,
-            TOE_OUTSIDE_C1, TOE_OUTSIDE_C3,
-            CENTER_C1, CENTER_C3,
-            MID_OUTSIDE_C1, MID_OUTSIDE_C3,
-            HEEL_C1, HEEL_C3
+            TOE_INSIDE_C1, TOE_INSIDE_C2, TOE_INSIDE_C3, TOE_INSIDE_THRESHOLD,
+            MID_INSIDE_C1, MID_INSIDE_C2, MID_INSIDE_C3, MID_INSIDE_THRESHOLD,
+            TOE_OUTSIDE_C1, TOE_OUTSIDE_C2, TOE_OUTSIDE_C3, TOE_OUTSIDE_THRESHOLD,
+            CENTER_C1, CENTER_C2, CENTER_C3, CENTER_THRESHOLD,
+            MID_OUTSIDE_C1, MID_OUTSIDE_C2, MID_OUTSIDE_C3, MID_OUTSIDE_THRESHOLD,
+            HEEL_C1, HEEL_C2, HEEL_C3, HEEL_THRESHOLD
     };
 
     private final SharedPreferences preferences;
@@ -53,12 +65,18 @@ final class PressureCalibrationStorage {
         }
         final OrpheInsolePressureCalibration defaults = OrpheInsolePressureCalibration.DEFAULT;
         return new OrpheInsolePressureCalibration(
-                loadCoefficient(deviceId, TOE_INSIDE_C1, TOE_INSIDE_C3, defaults.toeInside),
-                loadCoefficient(deviceId, MID_INSIDE_C1, MID_INSIDE_C3, defaults.midInside),
-                loadCoefficient(deviceId, TOE_OUTSIDE_C1, TOE_OUTSIDE_C3, defaults.toeOutside),
-                loadCoefficient(deviceId, CENTER_C1, CENTER_C3, defaults.center),
-                loadCoefficient(deviceId, MID_OUTSIDE_C1, MID_OUTSIDE_C3, defaults.midOutside),
-                loadCoefficient(deviceId, HEEL_C1, HEEL_C3, defaults.heel)
+                loadCoefficient(deviceId, TOE_INSIDE_C1, TOE_INSIDE_C2,
+                        TOE_INSIDE_C3, TOE_INSIDE_THRESHOLD, defaults.toeInside),
+                loadCoefficient(deviceId, MID_INSIDE_C1, MID_INSIDE_C2,
+                        MID_INSIDE_C3, MID_INSIDE_THRESHOLD, defaults.midInside),
+                loadCoefficient(deviceId, TOE_OUTSIDE_C1, TOE_OUTSIDE_C2,
+                        TOE_OUTSIDE_C3, TOE_OUTSIDE_THRESHOLD, defaults.toeOutside),
+                loadCoefficient(deviceId, CENTER_C1, CENTER_C2,
+                        CENTER_C3, CENTER_THRESHOLD, defaults.center),
+                loadCoefficient(deviceId, MID_OUTSIDE_C1, MID_OUTSIDE_C2,
+                        MID_OUTSIDE_C3, MID_OUTSIDE_THRESHOLD, defaults.midOutside),
+                loadCoefficient(deviceId, HEEL_C1, HEEL_C2,
+                        HEEL_C3, HEEL_THRESHOLD, defaults.heel)
         );
     }
 
@@ -68,12 +86,18 @@ final class PressureCalibrationStorage {
         }
         final SharedPreferences.Editor editor = preferences.edit();
         editor.putBoolean(key(deviceId, CONFIGURED), true);
-        saveCoefficient(editor, deviceId, TOE_INSIDE_C1, TOE_INSIDE_C3, calibration.toeInside);
-        saveCoefficient(editor, deviceId, MID_INSIDE_C1, MID_INSIDE_C3, calibration.midInside);
-        saveCoefficient(editor, deviceId, TOE_OUTSIDE_C1, TOE_OUTSIDE_C3, calibration.toeOutside);
-        saveCoefficient(editor, deviceId, CENTER_C1, CENTER_C3, calibration.center);
-        saveCoefficient(editor, deviceId, MID_OUTSIDE_C1, MID_OUTSIDE_C3, calibration.midOutside);
-        saveCoefficient(editor, deviceId, HEEL_C1, HEEL_C3, calibration.heel);
+        saveCoefficient(editor, deviceId, TOE_INSIDE_C1, TOE_INSIDE_C2,
+                TOE_INSIDE_C3, TOE_INSIDE_THRESHOLD, calibration.toeInside);
+        saveCoefficient(editor, deviceId, MID_INSIDE_C1, MID_INSIDE_C2,
+                MID_INSIDE_C3, MID_INSIDE_THRESHOLD, calibration.midInside);
+        saveCoefficient(editor, deviceId, TOE_OUTSIDE_C1, TOE_OUTSIDE_C2,
+                TOE_OUTSIDE_C3, TOE_OUTSIDE_THRESHOLD, calibration.toeOutside);
+        saveCoefficient(editor, deviceId, CENTER_C1, CENTER_C2,
+                CENTER_C3, CENTER_THRESHOLD, calibration.center);
+        saveCoefficient(editor, deviceId, MID_OUTSIDE_C1, MID_OUTSIDE_C2,
+                MID_OUTSIDE_C3, MID_OUTSIDE_THRESHOLD, calibration.midOutside);
+        saveCoefficient(editor, deviceId, HEEL_C1, HEEL_C2,
+                HEEL_C3, HEEL_THRESHOLD, calibration.heel);
         editor.apply();
     }
 
@@ -93,12 +117,16 @@ final class PressureCalibrationStorage {
     private OrpheInsolePressureCoefficient loadCoefficient(
             String deviceId,
             String coefficient1Suffix,
+            String coefficient2Suffix,
             String coefficient3Suffix,
+            String thresholdSuffix,
             @NonNull OrpheInsolePressureCoefficient defaults
     ) {
         return new OrpheInsolePressureCoefficient(
                 loadDouble(deviceId, coefficient1Suffix, defaults.coefficient1),
-                loadDouble(deviceId, coefficient3Suffix, defaults.coefficient3)
+                loadDouble(deviceId, coefficient2Suffix, defaults.coefficient2),
+                loadDouble(deviceId, coefficient3Suffix, defaults.coefficient3),
+                loadDouble(deviceId, thresholdSuffix, defaults.threshold)
         );
     }
 
@@ -115,7 +143,9 @@ final class PressureCalibrationStorage {
             @NonNull SharedPreferences.Editor editor,
             String deviceId,
             String coefficient1Suffix,
+            String coefficient2Suffix,
             String coefficient3Suffix,
+            String thresholdSuffix,
             @NonNull OrpheInsolePressureCoefficient coefficient
     ) {
         editor.putLong(
@@ -123,8 +153,16 @@ final class PressureCalibrationStorage {
                 Double.doubleToLongBits(coefficient.coefficient1)
         );
         editor.putLong(
+                key(deviceId, coefficient2Suffix),
+                Double.doubleToLongBits(coefficient.coefficient2)
+        );
+        editor.putLong(
                 key(deviceId, coefficient3Suffix),
                 Double.doubleToLongBits(coefficient.coefficient3)
+        );
+        editor.putLong(
+                key(deviceId, thresholdSuffix),
+                Double.doubleToLongBits(coefficient.threshold)
         );
     }
 

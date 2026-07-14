@@ -43,6 +43,14 @@ final class PressureCalibrationDialog {
                 R.id.input_mid_outside_c1,
                 R.id.input_heel_c1
         });
+        final EditText[] coefficient2Fields = findFields(content, new int[]{
+                R.id.input_toe_inside_c2,
+                R.id.input_mid_inside_c2,
+                R.id.input_toe_outside_c2,
+                R.id.input_center_c2,
+                R.id.input_mid_outside_c2,
+                R.id.input_heel_c2
+        });
         final EditText[] coefficient3Fields = findFields(content, new int[]{
                 R.id.input_toe_inside_c3,
                 R.id.input_mid_inside_c3,
@@ -51,7 +59,21 @@ final class PressureCalibrationDialog {
                 R.id.input_mid_outside_c3,
                 R.id.input_heel_c3
         });
-        populate(coefficient1Fields, coefficient3Fields, initialCalibration);
+        final EditText[] thresholdFields = findFields(content, new int[]{
+                R.id.input_toe_inside_threshold,
+                R.id.input_mid_inside_threshold,
+                R.id.input_toe_outside_threshold,
+                R.id.input_center_threshold,
+                R.id.input_mid_outside_threshold,
+                R.id.input_heel_threshold
+        });
+        populate(
+                coefficient1Fields,
+                coefficient2Fields,
+                coefficient3Fields,
+                thresholdFields,
+                initialCalibration
+        );
 
         final AlertDialog dialog = new AlertDialog.Builder(context)
                 .setTitle(title)
@@ -64,7 +86,9 @@ final class PressureCalibrationDialog {
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(view -> {
                 final OrpheInsolePressureCalibration calibration = readCalibration(
                         coefficient1Fields,
-                        coefficient3Fields
+                        coefficient2Fields,
+                        coefficient3Fields,
+                        thresholdFields
                 );
                 if (calibration == null) {
                     return;
@@ -91,7 +115,9 @@ final class PressureCalibrationDialog {
 
     private static void populate(
             @NonNull EditText[] coefficient1Fields,
+            @NonNull EditText[] coefficient2Fields,
             @NonNull EditText[] coefficient3Fields,
+            @NonNull EditText[] thresholdFields,
             @NonNull OrpheInsolePressureCalibration calibration
     ) {
         final OrpheInsolePressureCoefficient[] coefficients = {
@@ -104,26 +130,37 @@ final class PressureCalibrationDialog {
         };
         for (int index = 0; index < coefficients.length; index++) {
             coefficient1Fields[index].setText(Double.toString(coefficients[index].coefficient1));
+            coefficient2Fields[index].setText(Double.toString(coefficients[index].coefficient2));
             coefficient3Fields[index].setText(Double.toString(coefficients[index].coefficient3));
+            thresholdFields[index].setText(Double.toString(coefficients[index].threshold));
         }
     }
 
     private static OrpheInsolePressureCalibration readCalibration(
             @NonNull EditText[] coefficient1Fields,
-            @NonNull EditText[] coefficient3Fields
+            @NonNull EditText[] coefficient2Fields,
+            @NonNull EditText[] coefficient3Fields,
+            @NonNull EditText[] thresholdFields
     ) {
         final OrpheInsolePressureCoefficient[] coefficients =
                 new OrpheInsolePressureCoefficient[coefficient1Fields.length];
         boolean valid = true;
         for (int index = 0; index < coefficients.length; index++) {
             final Double coefficient1 = readFiniteDouble(coefficient1Fields[index]);
+            final Double coefficient2 = readFiniteDouble(coefficient2Fields[index]);
             final Double coefficient3 = readFiniteDouble(coefficient3Fields[index]);
-            if (coefficient1 == null || coefficient3 == null) {
+            final Double threshold = readFiniteDouble(thresholdFields[index]);
+            if (coefficient1 == null
+                    || coefficient2 == null
+                    || coefficient3 == null
+                    || threshold == null) {
                 valid = false;
             } else {
                 coefficients[index] = new OrpheInsolePressureCoefficient(
                         coefficient1,
-                        coefficient3
+                        coefficient2,
+                        coefficient3,
+                        threshold
                 );
             }
         }

@@ -310,7 +310,7 @@ public class OrpheSensorValue {
                             ? 0
                             : 5 * 1000;
                     final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
-                    // TODO: 計算で出力
+                    // request / bestEffortの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
                     final double quatX = 0;
                     final double quatY = 0;
@@ -378,6 +378,66 @@ public class OrpheSensorValue {
         }
         final OrpheSensorValue[] array = new OrpheSensorValue[res.size()];
         return res.toArray(array);
+    }
+
+    /** 既存の生値とメタデータを保ち、算出済み姿勢と派生値を設定します。 */
+    @NonNull
+    OrpheSensorValue withQuaternion(@NonNull final OrpheQuaternion quaternion) {
+        final double eulerX = toEulerX(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        final double eulerY = toEulerY(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        final double eulerZ = toEulerZ(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        final double gravityX = toGravityX(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        final double gravityY = toGravityY(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        final double gravityZ = toGravityZ(
+                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+        return new OrpheSensorValue(
+                sidePosition,
+                serialNumber,
+                dataPosition,
+                startTime,
+                endTime,
+                quaternion.x,
+                quaternion.y,
+                quaternion.z,
+                quaternion.w,
+                eulerX,
+                eulerY,
+                eulerZ,
+                accX,
+                accY,
+                accZ,
+                gyroX,
+                gyroY,
+                gyroZ,
+                gravityX,
+                gravityY,
+                gravityZ,
+                eulerX / 180.0,
+                eulerY / 180.0,
+                eulerZ / 180.0,
+                normalizedAccX,
+                normalizedAccY,
+                normalizedAccZ,
+                normalizedGyroX,
+                normalizedGyroY,
+                normalizedGyroZ,
+                normalizedMag,
+                normalizedWorldCoordinateAccX,
+                normalizedWorldCoordinateAccY,
+                normalizedWorldCoordinateAccZ,
+                mag,
+                shock,
+                normalizedShock,
+                isResendData,
+                dropNum,
+                isStoredData,
+                receivedAt
+        );
     }
 
     /**
@@ -679,8 +739,8 @@ public class OrpheSensorValue {
         return OrpheByteParser.getInt16BigEndian(bytes, index);
     }
 
-    private static short getUint16(@NonNull byte[] data, int index) {
-        return (short) (((data[index] & 0xFF) << 8) | (data[index + 1] & 0xFF));
+    private static int getUint16(@NonNull byte[] data, int index) {
+        return ((data[index] & 0xFF) << 8) | (data[index + 1] & 0xFF);
     }
     private static byte getUint8(@NonNull byte[] data, int index) {
         return (byte) (data[index] & 0xFF);

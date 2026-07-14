@@ -111,14 +111,22 @@ public final class OrpheInsolePressureCalibration {
             return OrpheInsolePressureCoefficient.DEFAULT;
         }
         final Double coefficient1 = values.get(OrpheInsoleCoefficient.coefficient1);
+        final Double coefficient2 = values.get(OrpheInsoleCoefficient.coefficient2);
         final Double coefficient3 = values.get(OrpheInsoleCoefficient.coefficient3);
+        final Double threshold = values.get(OrpheInsoleCoefficient.threshold);
         return new OrpheInsolePressureCoefficient(
                 coefficient1 == null
                         ? OrpheInsolePressureCoefficient.DEFAULT.coefficient1
                         : coefficient1,
+                coefficient2 == null
+                        ? OrpheInsolePressureCoefficient.DEFAULT.coefficient2
+                        : coefficient2,
                 coefficient3 == null
                         ? OrpheInsolePressureCoefficient.DEFAULT.coefficient3
-                        : coefficient3
+                        : coefficient3,
+                threshold == null
+                        ? OrpheInsolePressureCoefficient.DEFAULT.threshold
+                        : threshold
         );
     }
 

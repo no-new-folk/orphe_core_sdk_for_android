@@ -5,5 +5,7 @@ package io.orphe.orphecoresdk;
  */
 public enum OrpheInsoleCoefficient {
     coefficient1,
-    coefficient3;
+    coefficient2,
+    coefficient3,
+    threshold;
 }

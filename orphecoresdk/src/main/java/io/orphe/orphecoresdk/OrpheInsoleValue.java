@@ -324,7 +324,7 @@ public class OrpheInsoleValue {
                     index = s * 24 + 8;
                     final long duration = (3 - s) * 5_000_000L;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
-                    // TODO: 計算で出力
+                    // request / bestEffortの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
                     final double quatX = 0;
                     final double quatY = 0;
@@ -392,7 +392,7 @@ public class OrpheInsoleValue {
                     index = s * 32 + 8;
                     final long duration = (1 - s) * 10_000_000L;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
-                    // TODO: 計算で出力
+                    // realtime 100Hzではデバイス算出のクオータニオンを使用する。
                     final double quatW = parseInt(bytes, index) / 16384.0;
                     final double quatX = parseInt(bytes, index + 2) / 16384.0;
                     final double quatY = parseInt(bytes, index + 4) / 16384.0;
@@ -450,6 +450,69 @@ public class OrpheInsoleValue {
         return res.toArray(array);
     }
 
+    /** 既存のセンサー値を保ったまま、算出済み姿勢と出力内位置を設定します。 */
+    @NonNull
+    OrpheInsoleValue withQuaternion(
+            @NonNull final OrpheQuaternion quaternion,
+            final int outputDataPosition
+    ) {
+        return new OrpheInsoleValue(
+                sidePosition,
+                serialNumber,
+                outputDataPosition,
+                startTime,
+                endTime,
+                pressureToeOutside,
+                pressureMidOutside,
+                pressureToeInside,
+                pressureCenter,
+                pressureMidInside,
+                pressureHeel,
+                accX,
+                accY,
+                accZ,
+                gyroX,
+                gyroY,
+                gyroZ,
+                quaternion.w,
+                quaternion.x,
+                quaternion.y,
+                quaternion.z,
+                receivedAt
+        );
+    }
+
+    /** request / bestEffortの200Hz計算結果を指定出力レートへ変換します。 */
+    @NonNull
+    static OrpheInsoleValue[] forOutputSamplingRate(
+            @NonNull final OrpheInsoleValue[] values,
+            @NonNull final OrpheInsoleSamplingRate outputSamplingRate
+    ) {
+        if (outputSamplingRate == OrpheInsoleSamplingRate.hz200 || values.length < 4) {
+            return values.clone();
+        }
+        return new OrpheInsoleValue[]{
+                values[0].withQuaternion(
+                        new OrpheQuaternion(
+                                values[0].quatW,
+                                values[0].quatX,
+                                values[0].quatY,
+                                values[0].quatZ
+                        ),
+                        1
+                ),
+                values[2].withQuaternion(
+                        new OrpheQuaternion(
+                                values[2].quatW,
+                                values[2].quatX,
+                                values[2].quatY,
+                                values[2].quatZ
+                        ),
+                        0
+                )
+        };
+    }
+
     private static double calibratedPressure(
             final double milliVolt,
             @NonNull final OrpheInsolePressureCalibration pressureCalibration,
@@ -460,19 +523,49 @@ public class OrpheInsoleValue {
         return milliVoltToNewton(
                 milliVolt,
                 coefficient.coefficient1,
-                coefficient.coefficient3
+                coefficient.coefficient2,
+                coefficient.coefficient3,
+                coefficient.threshold
         );
     }
 
+    /**
+     * coefficient2とthresholdにdemo010と同じ既定値を使用して圧力へ変換します。
+     */
     public static double milliVoltToNewton(double milliVolt, Double coefficient1, Double coefficient3) {
-        if (milliVolt < 0.0 || milliVolt >= 10000.0 || milliVolt <= DEFAULT_THRESHOLD) {
+        return milliVoltToNewton(
+                milliVolt,
+                coefficient1,
+                DEFAULT_COEFFICIENT2,
+                coefficient3,
+                DEFAULT_THRESHOLD
+        );
+    }
+
+    /**
+     * 指定された4つの補正値を使用してmVをNへ変換します。
+     */
+    public static double milliVoltToNewton(
+            double milliVolt,
+            Double coefficient1,
+            Double coefficient2,
+            Double coefficient3,
+            Double threshold
+    ) {
+        if (!Double.isFinite(milliVolt) || milliVolt < 0.0 || milliVolt >= 10000.0) {
             return 0.0;
         }
 
         final double c1 = coefficient1 == null ? DEFAULT_COEFFICIENT1 : coefficient1;
+        final double c2 = coefficient2 == null ? DEFAULT_COEFFICIENT2 : coefficient2;
         final double c3 = coefficient3 == null ? DEFAULT_COEFFICIENT3 : coefficient3;
-        final double result = c1 * Math.exp(DEFAULT_COEFFICIENT2 * milliVolt) + c3;
-        return Math.max(0.0, result);
+        final double pressureThreshold = threshold == null ? DEFAULT_THRESHOLD : threshold;
+        if (!Double.isFinite(pressureThreshold) || milliVolt <= pressureThreshold) {
+            return 0.0;
+        }
+
+        final double result = c1 * Math.exp(c2 * milliVolt) + c3;
+        return Double.isFinite(result) ? Math.max(0.0, result) : 0.0;
     }
 
     /**

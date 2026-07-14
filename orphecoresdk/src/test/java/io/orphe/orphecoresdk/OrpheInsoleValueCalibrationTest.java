@@ -13,20 +13,36 @@ public class OrpheInsoleValueCalibrationTest {
     private static final double DELTA = 1.0E-9;
 
     @Test
-    public void coefficientOptionsOnlyContainEditableDemo010Coefficients() {
+    public void coefficientOptionsContainAllEditablePressureValues() {
         assertArrayEquals(
                 new OrpheInsoleCoefficient[]{
                         OrpheInsoleCoefficient.coefficient1,
-                        OrpheInsoleCoefficient.coefficient3
+                        OrpheInsoleCoefficient.coefficient2,
+                        OrpheInsoleCoefficient.coefficient3,
+                        OrpheInsoleCoefficient.threshold
                 },
                 OrpheInsoleCoefficient.values()
         );
     }
 
     @Test
-    public void pressureIsZeroAtOrBelowFixedThreshold() {
+    public void pressureIsZeroAtOrBelowDefaultThreshold() {
         assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(239.0, null, null), DELTA);
         assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(240.0, null, null), DELTA);
+    }
+
+    @Test
+    public void customThresholdIsUsed() {
+        assertEquals(
+                0.0,
+                OrpheInsoleValue.milliVoltToNewton(300.0, 1.0, 0.0, 0.0, 300.0),
+                DELTA
+        );
+        assertEquals(
+                1.0,
+                OrpheInsoleValue.milliVoltToNewton(300.0, 1.0, 0.0, 0.0, 299.0),
+                DELTA
+        );
     }
 
     @Test
@@ -35,14 +51,40 @@ public class OrpheInsoleValueCalibrationTest {
         final double expected = 2.77942 * Math.exp(0.00235 * milliVolt) + 4.14411;
 
         assertEquals(expected, OrpheInsoleValue.milliVoltToNewton(milliVolt, null, null), DELTA);
+        assertCoefficient(
+                2.77942,
+                0.00235,
+                4.14411,
+                240.0,
+                OrpheInsolePressureCoefficient.DEFAULT
+        );
     }
 
     @Test
-    public void customCoefficient1AndCoefficient3AreUsed() {
+    public void legacyTwoValueApiUsesDefaultCoefficient2AndThreshold() {
         final double milliVolt = 300.0;
         final double expected = 1.5 * Math.exp(0.00235 * milliVolt) + 2.5;
 
         assertEquals(expected, OrpheInsoleValue.milliVoltToNewton(milliVolt, 1.5, 2.5), DELTA);
+        assertCoefficient(
+                1.5,
+                0.00235,
+                2.5,
+                240.0,
+                new OrpheInsolePressureCoefficient(1.5, 2.5)
+        );
+    }
+
+    @Test
+    public void allCustomPressureValuesAreUsed() {
+        final double milliVolt = 300.0;
+        final double expected = 1.5 * Math.exp(0.003 * milliVolt) + 2.5;
+
+        assertEquals(
+                expected,
+                OrpheInsoleValue.milliVoltToNewton(300.0, 1.5, 0.003, 2.5, 200.0),
+                DELTA
+        );
     }
 
     @Test
@@ -59,32 +101,63 @@ public class OrpheInsoleValueCalibrationTest {
     public void invalidMilliVoltValuesAreZero() {
         assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(-1.0, null, null), DELTA);
         assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(10000.0, null, null), DELTA);
+        assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(Double.NaN, null, null), DELTA);
+        assertEquals(0.0, OrpheInsoleValue.milliVoltToNewton(Double.POSITIVE_INFINITY,
+                null, null), DELTA);
+    }
+
+    @Test
+    public void nonFiniteCalculationResultIsZero() {
+        assertEquals(
+                0.0,
+                OrpheInsoleValue.milliVoltToNewton(
+                        300.0, Double.POSITIVE_INFINITY, 0.00235, 4.14411, 240.0),
+                DELTA
+        );
     }
 
     @Test
     public void pressureCalibrationStoresDifferentCoefficientsForAllSensorPositions() {
         final OrpheInsolePressureCalibration calibration = distinctCalibration();
 
-        assertCoefficient(1.0, 10.0, calibration.toeInside);
-        assertCoefficient(2.0, 20.0, calibration.midInside);
-        assertCoefficient(3.0, 30.0, calibration.toeOutside);
-        assertCoefficient(4.0, 40.0, calibration.center);
-        assertCoefficient(5.0, 50.0, calibration.midOutside);
-        assertCoefficient(6.0, 60.0, calibration.heel);
+        assertCoefficient(1.0, 0.001, 10.0, 100.0, calibration.toeInside);
+        assertCoefficient(2.0, 0.002, 20.0, 110.0, calibration.midInside);
+        assertCoefficient(3.0, 0.003, 30.0, 120.0, calibration.toeOutside);
+        assertCoefficient(4.0, 0.004, 40.0, 130.0, calibration.center);
+        assertCoefficient(5.0, 0.005, 50.0, 140.0, calibration.midOutside);
+        assertCoefficient(6.0, 0.006, 60.0, 150.0, calibration.heel);
     }
 
     @Test
     public void legacySingleCoefficientUpdateKeepsOtherValuesAndOriginalConfig() {
         final OrpheInsolePressureCalibration original = distinctCalibration();
-        final OrpheInsolePressureCalibration updated = original.withCoefficient(
+        final OrpheInsolePressureCalibration updatedCoefficient1 = original.withCoefficient(
                 OrpheInsoleSensorPosition.toeInside,
                 OrpheInsoleCoefficient.coefficient1,
                 0.0
         );
+        final OrpheInsolePressureCalibration updatedCoefficient2 = original.withCoefficient(
+                OrpheInsoleSensorPosition.toeInside,
+                OrpheInsoleCoefficient.coefficient2,
+                0.01
+        );
+        final OrpheInsolePressureCalibration updatedCoefficient3 = original.withCoefficient(
+                OrpheInsoleSensorPosition.toeInside,
+                OrpheInsoleCoefficient.coefficient3,
+                30.0
+        );
+        final OrpheInsolePressureCalibration updatedThreshold = original.withCoefficient(
+                OrpheInsoleSensorPosition.toeInside,
+                OrpheInsoleCoefficient.threshold,
+                350.0
+        );
 
-        assertCoefficient(1.0, 10.0, original.toeInside);
-        assertCoefficient(0.0, 10.0, updated.toeInside);
-        assertSame(original.heel, updated.heel);
+        assertCoefficient(1.0, 0.001, 10.0, 100.0, original.toeInside);
+        assertCoefficient(0.0, 0.001, 10.0, 100.0, updatedCoefficient1.toeInside);
+        assertCoefficient(1.0, 0.01, 10.0, 100.0, updatedCoefficient2.toeInside);
+        assertCoefficient(1.0, 0.001, 30.0, 100.0, updatedCoefficient3.toeInside);
+        assertCoefficient(1.0, 0.001, 10.0, 350.0, updatedThreshold.toeInside);
+        assertSame(original.heel, updatedThreshold.heel);
     }
 
     @Test
@@ -112,7 +185,9 @@ public class OrpheInsoleValueCalibrationTest {
 
         final Map<OrpheInsoleCoefficient, Double> toeInsideCoefficients = new HashMap<>();
         toeInsideCoefficients.put(OrpheInsoleCoefficient.coefficient1, 1.5);
+        toeInsideCoefficients.put(OrpheInsoleCoefficient.coefficient2, 0.003);
         toeInsideCoefficients.put(OrpheInsoleCoefficient.coefficient3, 2.5);
+        toeInsideCoefficients.put(OrpheInsoleCoefficient.threshold, 250.0);
         final Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> coefficientMap =
                 new HashMap<>();
         coefficientMap.put(OrpheInsoleSensorPosition.toeInside, toeInsideCoefficients);
@@ -126,20 +201,35 @@ public class OrpheInsoleValueCalibrationTest {
                 0L
         );
 
-        final double expected = 1.5 * Math.exp(0.00235 * 300.0) + 2.5;
+        final double expected = 1.5 * Math.exp(0.003 * 300.0) + 2.5;
         assertEquals(expected, values[0].pressureToeInside, DELTA);
         assertEquals(expected, values[1].pressureToeInside, DELTA);
         assertEquals(0.0, values[0].pressureHeel, DELTA);
     }
 
+    @Test
+    public void mapWithoutNewValuesUsesDefaultsForBackwardCompatibility() {
+        final Map<OrpheInsoleCoefficient, Double> values = new HashMap<>();
+        values.put(OrpheInsoleCoefficient.coefficient1, 1.5);
+        values.put(OrpheInsoleCoefficient.coefficient3, 2.5);
+        final Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> coefficientMap =
+                new HashMap<>();
+        coefficientMap.put(OrpheInsoleSensorPosition.toeInside, values);
+
+        final OrpheInsolePressureCalibration calibration =
+                OrpheInsolePressureCalibration.fromMap(coefficientMap);
+
+        assertCoefficient(1.5, 0.00235, 2.5, 240.0, calibration.toeInside);
+    }
+
     private static OrpheInsolePressureCalibration distinctCalibration() {
         return new OrpheInsolePressureCalibration(
-                new OrpheInsolePressureCoefficient(1.0, 10.0),
-                new OrpheInsolePressureCoefficient(2.0, 20.0),
-                new OrpheInsolePressureCoefficient(3.0, 30.0),
-                new OrpheInsolePressureCoefficient(4.0, 40.0),
-                new OrpheInsolePressureCoefficient(5.0, 50.0),
-                new OrpheInsolePressureCoefficient(6.0, 60.0)
+                new OrpheInsolePressureCoefficient(1.0, 0.001, 10.0, 100.0),
+                new OrpheInsolePressureCoefficient(2.0, 0.002, 20.0, 110.0),
+                new OrpheInsolePressureCoefficient(3.0, 0.003, 30.0, 120.0),
+                new OrpheInsolePressureCoefficient(4.0, 0.004, 40.0, 130.0),
+                new OrpheInsolePressureCoefficient(5.0, 0.005, 50.0, 140.0),
+                new OrpheInsolePressureCoefficient(6.0, 0.006, 60.0, 150.0)
         );
     }
 
@@ -191,16 +281,22 @@ public class OrpheInsoleValueCalibrationTest {
     }
 
     private static double expectedPressure(final OrpheInsolePressureCoefficient coefficient) {
-        return coefficient.coefficient1 * Math.exp(0.00235 * 300.0) + coefficient.coefficient3;
+        return coefficient.coefficient1
+                * Math.exp(coefficient.coefficient2 * 300.0)
+                + coefficient.coefficient3;
     }
 
     private static void assertCoefficient(
             final double coefficient1,
+            final double coefficient2,
             final double coefficient3,
+            final double threshold,
             final OrpheInsolePressureCoefficient actual
     ) {
         assertEquals(coefficient1, actual.coefficient1, DELTA);
+        assertEquals(coefficient2, actual.coefficient2, DELTA);
         assertEquals(coefficient3, actual.coefficient3, DELTA);
+        assertEquals(threshold, actual.threshold, DELTA);
     }
 
     private static void putUint16(byte[] data, int index, int value) {

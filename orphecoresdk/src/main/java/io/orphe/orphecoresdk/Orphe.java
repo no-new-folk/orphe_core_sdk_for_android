@@ -26,6 +26,7 @@ import androidx.annotation.RequiresApi;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
@@ -63,6 +64,10 @@ public class Orphe {
     private OrpheCoreSensorConfig mSensorConfig;
     private OrpheBestEffortRequester<OrpheSensorValue[]> mBestEffortRequester;
     private OrpheBestEffortInitializer mBestEffortInitializer;
+    private OrpheSensorValueAccumulator mBestEffortValues =
+            new OrpheSensorValueAccumulator();
+    private final OrpheQuaternionTimeline<OrpheSensorValue> mQuaternionTimeline =
+            OrpheQuaternionTimelines.forCore();
     private boolean mRequestLoopStarted;
     private boolean mClosed;
     private final Runnable mRequestLoopRunnable = () -> {
@@ -117,6 +122,12 @@ public class Orphe {
      */
     public OrpheSensorValue getLatestValue() {
         return mLatestValue;
+    }
+
+    /** 現在のbestEffortセッションで取得した、姿勢再計算済みの全値を返します。 */
+    @NonNull
+    public OrpheSensorValue[] getBestEffortValues() {
+        return mBestEffortValues.snapshot();
     }
 
     /**
@@ -219,6 +230,7 @@ public class Orphe {
     public void setSensorConfig(@NonNull final OrpheCoreSensorConfig sensorConfig) {
         final OrpheSensorReceiveMode previousMode = mSensorConfig.receiveMode;
         stopRequestLoop();
+        mQuaternionTimeline.clear();
         mSensorConfig = sensorConfig;
         createBestEffortRequester();
         if (mStatus == OrpheCoreStatus.connected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -333,6 +345,7 @@ public class Orphe {
             stopAccumulation();
         }
         stopRequestLoop();
+        mQuaternionTimeline.clear();
         mStatus = OrpheCoreStatus.disconnecting;
         if (mBluetoothGatt != null) {
             mBluetoothGatt.disconnect();
@@ -376,6 +389,7 @@ public class Orphe {
         mClosed = true;
         mHandler.removeCallbacksAndMessages(null);
         stopRequestLoop();
+        mQuaternionTimeline.clear();
         if (mBluetoothLeScanner != null && mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
         }
@@ -547,6 +561,12 @@ public class Orphe {
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void applySensorConfigAfterNotificationStarted() {
+        if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime) {
+            mQuaternionTimeline.clear();
+        }
+        if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+            mBestEffortValues = new OrpheSensorValueAccumulator();
+        }
         mHandler.postDelayed(() -> {
             if (mClosed || mStatus != OrpheCoreStatus.connected) {
                 return;
@@ -673,7 +693,7 @@ public class Orphe {
 
                     @Override
                     public void onValue(@NonNull OrpheSensorValue[] values) {
-                        mOrpheCallback.gotSensorValues(values);
+                        // 表示通知は受信直後に行う。要求器は欠損回収の進行だけを担当する。
                     }
 
                     @Override
@@ -753,6 +773,7 @@ public class Orphe {
         if (!canSendManualRequest() || !validateRequests(requests)) {
             return;
         }
+        mQuaternionTimeline.clear();
         writeSensorValueRequest(requests);
     }
 
@@ -1186,12 +1207,41 @@ public class Orphe {
                                     case 54:
                                     case 55:
                                     case 56:
-                                        final OrpheSensorValue[] values = OrpheSensorValue.fromBytes(value, sidePosition, accRange, gyroRange, receivedAt);
+                                        OrpheSensorValue[] values = OrpheSensorValue.fromBytes(
+                                                value,
+                                                sidePosition,
+                                                accRange,
+                                                gyroRange,
+                                                receivedAt
+                                        );
+                                        OrpheQuaternionTimeline.Result<OrpheSensorValue>
+                                                quaternionResult = null;
+                                        if (mSensorConfig.receiveMode
+                                                != OrpheSensorReceiveMode.realtime
+                                                && (value[0] & 0xFF) == 54) {
+                                            quaternionResult = mQuaternionTimeline.add(values);
+                                            values = quaternionResult.receivedValues;
+                                        }
                                         if (values.length > 0) {
                                             mLatestValue = values[values.length - 1];
                                             mLatestSerialNumber = mLatestValue.serialNumber;
                                             mLatestSerialNumberTime = LocalDateTime.now();
                                             if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                final ArrayList<OrpheSensorValue[]>
+                                                        recalculatedPackets = new ArrayList<>();
+                                                if (quaternionResult != null) {
+                                                    recalculatedPackets.addAll(
+                                                            quaternionResult.recalculatedPackets
+                                                    );
+                                                }
+                                                final OrpheSensorValueUpdate update =
+                                                        mBestEffortValues.add(
+                                                                values,
+                                                                recalculatedPackets
+                                                        );
+                                                if (update != null) {
+                                                    mOrpheCallback.gotSensorValues(update);
+                                                }
                                                 mBestEffortRequester.onValue(
                                                         mLatestSerialNumber,
                                                         values,

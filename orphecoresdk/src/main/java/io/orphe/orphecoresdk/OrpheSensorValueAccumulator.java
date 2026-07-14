@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/** bestEffortで受信した値をシリアル順にマージするSDK内部ストア。 */
-final class OrpheInsoleValueAccumulator {
+/** COREのbestEffort値と再計算版をシリアル順に保持するSDK内部ストア。 */
+final class OrpheSensorValueAccumulator {
     private static final int HALF_SERIAL_NUMBER_MODULUS =
             OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS / 2;
 
@@ -19,21 +19,15 @@ final class OrpheInsoleValueAccumulator {
     private long latestSequence;
     private long version;
 
-    /**
-     * 未取得のシリアルだけを追加する。再要求で同じシリアルが重複しても更新通知しない。
-     */
     @Nullable
-    synchronized OrpheInsoleValueUpdate add(@NonNull final OrpheInsoleValue[] values) {
+    synchronized OrpheSensorValueUpdate add(@NonNull final OrpheSensorValue[] values) {
         return add(values, Collections.singletonList(values));
     }
 
-    /**
-     * 新規受信値を追加し、欠損回収によって再計算された既存パケットも同じ版で更新する。
-     */
     @Nullable
-    synchronized OrpheInsoleValueUpdate add(
-            @NonNull final OrpheInsoleValue[] values,
-            @NonNull final List<OrpheInsoleValue[]> recalculatedPackets
+    synchronized OrpheSensorValueUpdate add(
+            @NonNull final OrpheSensorValue[] values,
+            @NonNull final List<OrpheSensorValue[]> recalculatedPackets
     ) {
         if (values.length == 0) {
             return null;
@@ -47,7 +41,7 @@ final class OrpheInsoleValueAccumulator {
         }
 
         version++;
-        final OrpheInsoleValue[] copiedValues = values.clone();
+        final OrpheSensorValue[] copiedValues = values.clone();
         packets.put(sequence, new Packet(copiedValues, version));
         if (!initialized || sequence > latestSequence) {
             initialized = true;
@@ -55,42 +49,40 @@ final class OrpheInsoleValueAccumulator {
             latestSequence = sequence;
         }
 
-        for (OrpheInsoleValue[] recalculated : recalculatedPackets) {
+        for (OrpheSensorValue[] recalculated : recalculatedPackets) {
             if (recalculated == null || recalculated.length == 0) {
                 continue;
             }
             final int recalculatedSerial = OrpheBestEffortRequester.normalizeSerialNumber(
                     recalculated[0].serialNumber
             );
-            final long recalculatedSequence = resolveSequence(recalculatedSerial);
-            final Packet packet = packets.get(recalculatedSequence);
+            final Packet packet = packets.get(resolveSequence(recalculatedSerial));
             if (packet != null) {
                 packet.revisions.put(version, recalculated.clone());
             }
         }
-        return new OrpheInsoleValueUpdate(copiedValues, this, version);
+        return new OrpheSensorValueUpdate(copiedValues, this, version);
     }
 
     @NonNull
-    synchronized OrpheInsoleValue[] snapshot() {
+    synchronized OrpheSensorValue[] snapshot() {
         return snapshot(version);
     }
 
-    /** 指定更新時点に存在していた値だけをシリアル順で返す。 */
     @NonNull
-    synchronized OrpheInsoleValue[] snapshot(final long maximumVersion) {
+    synchronized OrpheSensorValue[] snapshot(final long maximumVersion) {
         int valueCount = 0;
         for (Packet packet : packets.values()) {
-            final OrpheInsoleValue[] values = packet.valuesAt(maximumVersion);
+            final OrpheSensorValue[] values = packet.valuesAt(maximumVersion);
             if (values != null) {
                 valueCount += values.length;
             }
         }
 
-        final OrpheInsoleValue[] result = new OrpheInsoleValue[valueCount];
+        final OrpheSensorValue[] result = new OrpheSensorValue[valueCount];
         int offset = 0;
         for (Packet packet : packets.values()) {
-            final OrpheInsoleValue[] values = packet.valuesAt(maximumVersion);
+            final OrpheSensorValue[] values = packet.valuesAt(maximumVersion);
             if (values == null) {
                 continue;
             }
@@ -123,20 +115,20 @@ final class OrpheInsoleValueAccumulator {
     }
 
     private static final class Packet {
-        @NonNull final TreeMap<Long, OrpheInsoleValue[]> revisions = new TreeMap<>();
+        @NonNull final TreeMap<Long, OrpheSensorValue[]> revisions = new TreeMap<>();
         final long insertedAtVersion;
 
-        Packet(@NonNull final OrpheInsoleValue[] values, final long version) {
+        Packet(@NonNull final OrpheSensorValue[] values, final long version) {
             insertedAtVersion = version;
             revisions.put(version, values);
         }
 
         @Nullable
-        OrpheInsoleValue[] valuesAt(final long maximumVersion) {
+        OrpheSensorValue[] valuesAt(final long maximumVersion) {
             if (insertedAtVersion > maximumVersion) {
                 return null;
             }
-            final Map.Entry<Long, OrpheInsoleValue[]> revision =
+            final Map.Entry<Long, OrpheSensorValue[]> revision =
                     revisions.floorEntry(maximumVersion);
             return revision == null ? null : revision.getValue();
         }

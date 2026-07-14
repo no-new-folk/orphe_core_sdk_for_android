@@ -16,7 +16,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="12dp"
-            android:text="Edit coefficient1 and coefficient3 for each pressure sensor. coefficient2 = 0.00235 and threshold = 240mV are fixed."
+            android:text="Edit coefficient1, coefficient2, coefficient3, and threshold for each pressure sensor."
             android:textSize="14sp" />
 
         <TextView
@@ -29,9 +29,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_toe_inside_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_toe_inside_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_toe_inside_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
 
         <TextView
@@ -44,9 +54,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_mid_inside_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_mid_inside_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_mid_inside_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
 
         <TextView
@@ -59,9 +79,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_toe_outside_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_toe_outside_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_toe_outside_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
 
         <TextView
@@ -74,9 +104,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_center_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_center_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_center_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
 
         <TextView
@@ -89,9 +129,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_mid_outside_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_mid_outside_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_mid_outside_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
 
         <TextView
@@ -104,9 +154,19 @@
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient1" />
             <EditText
+                android:id="@+id/input_heel_c2"
+                style="@style/PressureCalibrationInput"
+                android:hint="coefficient2" />
+        </LinearLayout>
+        <LinearLayout style="@style/PressureCalibrationInputRow">
+            <EditText
                 android:id="@+id/input_heel_c3"
                 style="@style/PressureCalibrationInput"
                 android:hint="coefficient3" />
+            <EditText
+                android:id="@+id/input_heel_threshold"
+                style="@style/PressureCalibrationInput"
+                android:hint="threshold (mV)" />
         </LinearLayout>
     </LinearLayout>
 </ScrollView>

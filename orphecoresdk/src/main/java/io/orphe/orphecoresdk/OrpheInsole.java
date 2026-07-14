@@ -75,6 +75,8 @@ public class OrpheInsole {
     private OrpheBestEffortInitializer mBestEffortInitializer;
     private OrpheInsoleValueAccumulator mBestEffortValues =
             new OrpheInsoleValueAccumulator();
+    private final OrpheQuaternionTimeline<OrpheInsoleValue> mQuaternionTimeline =
+            OrpheQuaternionTimelines.forInsole();
     private final OrpheInsoleSamplingRateGuard mSamplingRateGuard =
             new OrpheInsoleSamplingRateGuard(SAMPLING_RATE_MAX_RETRY_COUNT);
     private boolean mSamplingRateValidationActive;
@@ -128,8 +130,7 @@ public class OrpheInsole {
     }
 
     /**
-     * 圧力係数の設定。設定可能な係数はcoefficient1とcoefficient3です。
-     * coefficient2と閾値はdemo010と同じ固定値を使用します。
+     * 圧力係数の設定。coefficient1、coefficient2、coefficient3、thresholdを設定できます。
      * @param sensorPosition センサーの取り付け位置
      * @param coefficient 圧力係数
      * @param value 圧力係数の値
@@ -331,6 +332,7 @@ public class OrpheInsole {
         resetSamplingRateGuard();
         stopRequestLoop();
         resetBestEffortAnchorCandidate();
+        mQuaternionTimeline.clear();
         mSensorConfig = sensorConfig;
         createBestEffortRequester();
         if (mStatus == OrpheCoreStatus.connected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -420,6 +422,7 @@ public class OrpheInsole {
             stopAccumulation();
             stopRequestLoop();
         }
+        mQuaternionTimeline.clear();
         mStatus = OrpheCoreStatus.disconnecting;
         if (mBluetoothGatt != null) {
             mBluetoothGatt.disconnect();
@@ -541,6 +544,7 @@ public class OrpheInsole {
         resetSamplingRateGuard();
         mHandler.removeCallbacksAndMessages(null);
         stopRequestLoop();
+        mQuaternionTimeline.clear();
         if (mBluetoothLeScanner != null && mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
         }
@@ -673,6 +677,9 @@ public class OrpheInsole {
             // 過去の更新オブジェクトが保持するスナップショット時点を壊さないよう、
             // 新しいセッションではストア自体を入れ替える。
             mBestEffortValues = new OrpheInsoleValueAccumulator();
+        }
+        if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime) {
+            mQuaternionTimeline.clear();
         }
         Handler handler = new Handler(Looper.getMainLooper());
         handler.postDelayed(() -> {
@@ -926,6 +933,7 @@ public class OrpheInsole {
         if (!canSendManualRequest() || !validateRequests(requests)) {
             return;
         }
+        mQuaternionTimeline.clear();
         writeInsoleValueRequest(requests);
     }
 
@@ -1425,6 +1433,8 @@ public class OrpheInsole {
                                             break;
                                         }
                                         final OrpheInsoleValue[] values;
+                                        OrpheQuaternionTimeline.Result<OrpheInsoleValue>
+                                                quaternionResult = null;
                                         if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
                                             values = OrpheInsoleValue.fromBytes(
                                                     value,
@@ -1435,13 +1445,19 @@ public class OrpheInsole {
                                                     receivedAt
                                             );
                                         } else {
-                                            values = OrpheInsoleValue.fromBytes(
+                                            final OrpheInsoleValue[] fullRateValues =
+                                                    OrpheInsoleValue.fromBytes(
                                                     value,
                                                     sidePosition,
                                                     accRange,
                                                     gyroRange,
                                                     mPressureCalibration,
                                                     receivedAt,
+                                                    OrpheInsoleSamplingRate.hz200
+                                            );
+                                            quaternionResult = mQuaternionTimeline.add(fullRateValues);
+                                            values = OrpheInsoleValue.forOutputSamplingRate(
+                                                    quaternionResult.receivedValues,
                                                     mSensorConfig.samplingRate
                                             );
                                         }
@@ -1451,8 +1467,24 @@ public class OrpheInsole {
                                             mLatestSerialNumberTime = LocalDateTime.now();
                                             mLatestSerialNumberReceivedAtMillis = receivedAt;
                                             if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                final ArrayList<OrpheInsoleValue[]>
+                                                        recalculatedPackets = new ArrayList<>();
+                                                if (quaternionResult != null) {
+                                                    for (OrpheInsoleValue[] recalculated
+                                                            : quaternionResult.recalculatedPackets) {
+                                                        recalculatedPackets.add(
+                                                                OrpheInsoleValue.forOutputSamplingRate(
+                                                                        recalculated,
+                                                                        mSensorConfig.samplingRate
+                                                                )
+                                                        );
+                                                    }
+                                                }
                                                 final OrpheInsoleValueUpdate update =
-                                                        mBestEffortValues.add(values);
+                                                        mBestEffortValues.add(
+                                                                values,
+                                                                recalculatedPackets
+                                                        );
                                                 if (update != null) {
                                                     mOrpheCallback.gotInsoleValues(update);
                                                 }
