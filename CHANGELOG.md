@@ -1,5 +1,35 @@
 # Change Log
 
+## 2026-07-14
+
+### Changes
+
+---
+
+- **FEAT**: CORE / INSOLE 共通の受信方式として `realtime` / `request` / `bestEffort` を追加
+- **FEAT**: `request`を手動要求専用とし、開始シリアル番号と件数を指定する公開APIをCORE / INSOLE双方に追加
+- **FEAT**: `bestEffort`をCORE / INSOLE共通でPython版ところてんと同じcarry-over方式へ変更。BLEタイムアウトは固定回数で打ち切らず次回要求へ持ち越し、FWの`noData`・carry-over 100件超過・リングバッファ1,500件超過で再同期する仕様に統一
+- **DEPRECATED**: `OrpheBestEffortConfig.maxRetryCount`と4引数コンストラクタを非推奨化（ソース互換のため維持し、新方式では固定リトライ回数として使用しない）
+- **FIX**: INSOLEの`bestEffort`で欠損回収待ちがリアルタイム表示を停止しないよう、受信差分を即時通知する経路と全体値のシリアル順マージを分離
+- **FIX**: Android版`bestEffort`は応答を1件以上受信した後、250ms無通信なら5秒の総タイムアウトを待たず未着シリアルをcarry-overし、左右同時取得時のリングバッファ超過を抑止
+- **FIX**: INSOLEの`request` / `bestEffort`はFW蓄積形式の0x36（200Hz）だけを受理し、`hz100`指定時はSDKで0ms / 10msの2点へ間引くよう修正
+- **FEAT**: `OrpheInsoleValueUpdate`を追加し、更新コールバックから今回の差分と、その更新時点までの欠損回収済み全値を取得可能に変更
+- **FEAT**: サンプルアプリの選択肢を通常利用向けの `realtime` / `bestEffort` に整理（SDKの手動 `request` APIは継続提供）
+- **FIX**: サンプルアプリはBestEffort選択時に200Hzへ固定し、200Hz選択中のQuaternionグラフを非表示に変更
+- **FEAT**: サンプルアプリにINSOLEの6点別圧力補正設定UIを追加し、デバイスID別の保存・接続時自動適用・既定値リセットに対応
+
+## 2026-07-13
+
+### Changes
+
+---
+
+- **BREAKING**: INSOLEの圧力補正仕様をdemo010に統一し、センサー別に設定可能な係数をcoefficient1とcoefficient3のみに変更
+- **FIX**: coefficient2を0.00235、閾値を240mVの固定値に変更し、負の計算結果と異常値を0Nに補正
+- **FEAT**: `OrpheInsolePressureCalibration`と`OrpheInsolePressureCoefficient`を追加し、6点それぞれの補正値を`setPressureCalibration`で一括指定可能に変更（従来の`setCoefficient`も継続利用可能）
+- **BREAKING**: `OrpheInsoleValue` / `OrpheSensorValue` に `receivedAt`（SDK受信時刻・epochミリ秒）を追加。両クラスのコンストラクタと `fromBytes` シグネチャに `long receivedAt` 引数が追加され、後方互換なし
+- **FEAT**: サンプルアプリのインソールCSV出力に `receivedAt` 列を追加
+
 ## 2025-07-18
 
 ### Changes

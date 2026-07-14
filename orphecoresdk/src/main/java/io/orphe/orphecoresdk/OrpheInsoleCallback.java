@@ -2,6 +2,8 @@ package io.orphe.orphecoresdk;
 
 import android.bluetooth.BluetoothDevice;
 
+import androidx.annotation.NonNull;
+
 import java.util.UUID;
 
 /**
@@ -16,6 +18,20 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
       */
     public void gotInsoleValues(OrpheInsoleValue[] insoleValues) {
 
+    }
+
+    /**
+     * bestEffort受信中に値が更新された直後のコールバック。
+     *
+     * <p>{@link OrpheInsoleValueUpdate#getDeltaValues()}で今回の差分、
+     * {@link OrpheInsoleValueUpdate#getAllValues()}でこの更新時点の全値を取得できます。
+     * 既存実装との互換性のため、既定では差分を{@link #gotInsoleValues(OrpheInsoleValue[])}へ
+     * 転送します。</p>
+     *
+     * @param update 今回の差分とSDK内でマージ済みの全値
+     */
+    public void gotInsoleValues(@NonNull OrpheInsoleValueUpdate update) {
+        gotInsoleValues(update.getDeltaValues());
     }
 
     /**

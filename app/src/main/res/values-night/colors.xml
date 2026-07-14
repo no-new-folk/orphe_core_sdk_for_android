@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="sensor_chart_background">#FF121212</color>
+    <color name="sensor_chart_grid">#FF424242</color>
+    <color name="sensor_chart_axis">#FF757575</color>
+    <color name="sensor_chart_text">#FFE0E0E0</color>
+    <color name="sensor_chart_series_red">#FFEF5350</color>
+    <color name="sensor_chart_series_green">#FF66BB6A</color>
+    <color name="sensor_chart_series_blue">#FF42A5F5</color>
+    <color name="sensor_chart_series_orange">#FFFFA726</color>
+    <color name="sensor_chart_series_purple">#FFAB47BC</color>
+    <color name="sensor_chart_series_teal">#FF26A69A</color>
+</resources>

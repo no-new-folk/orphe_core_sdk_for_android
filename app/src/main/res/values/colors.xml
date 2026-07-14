@@ -2,4 +2,15 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <color name="sensor_chart_background">#FFFAFAFA</color>
+    <color name="sensor_chart_grid">#FFE0E0E0</color>
+    <color name="sensor_chart_axis">#FF9E9E9E</color>
+    <color name="sensor_chart_text">#FF424242</color>
+    <color name="sensor_chart_series_red">#FFE53935</color>
+    <color name="sensor_chart_series_green">#FF43A047</color>
+    <color name="sensor_chart_series_blue">#FF1E88E5</color>
+    <color name="sensor_chart_series_orange">#FFFB8C00</color>
+    <color name="sensor_chart_series_purple">#FF8E24AA</color>
+    <color name="sensor_chart_series_teal">#FF00897B</color>
 </resources>

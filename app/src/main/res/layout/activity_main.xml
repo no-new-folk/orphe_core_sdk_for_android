@@ -7,15 +7,20 @@
     android:layout_height="match_parent"
     tools:context=".MainActivity">
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-        android:orientation="vertical"
+    <ScrollView
         android:layout_width="match_parent"
-        android:layout_height="match_parent">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
+
+        <LinearLayout
+            android:orientation="vertical"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content">
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:minHeight="80dp"
             android:gravity="center">
 
             <TextView
@@ -26,12 +31,59 @@
                 android:textSize="36sp"/>
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/text_sensor_setting"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:gravity="center"
+            android:text="Request / 100Hz"
+            android:textSize="16sp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="8dp"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Spinner
+                android:id="@+id/spinner_receive_mode"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginHorizontal="8dp"
+                android:layout_weight="1" />
+
+            <Spinner
+                android:id="@+id/spinner_sampling_rate"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_marginHorizontal="8dp"
+                android:layout_weight="1" />
+        </LinearLayout>
+
+        <Button
+            android:id="@+id/button_scan"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="8dp"
+            android:text="Scan Devices" />
+
+        <TextView
+            android:id="@+id/text_scan_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginBottom="8dp"
+            android:gravity="center"
+            android:text="Press Scan Devices to find insoles"
+            android:textSize="14sp" />
 
         <LinearLayout
             android:orientation="horizontal"
             android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
+            android:layout_height="wrap_content"
             android:gravity="center"
             android:layout_gravity="center">
 
@@ -50,8 +102,43 @@
                     android:layout_marginHorizontal="16dp"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
                     android:gravity="center"/>
+
+                <Button
+                    android:id="@+id/button_calibration_left"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:text="Pressure Calibration"
+                    android:enabled="false" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_left_acc"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_left_gyro"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_left_quat"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_left_pressure"
+                    android:layout_width="match_parent"
+                    android:layout_height="112dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
 
                 <TextView
                     android:id="@+id/text_connection_status_left"
@@ -65,28 +152,6 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
-
-                <TextView
-                    android:id="@+id/text_value_result_left"
-                    android:layout_marginHorizontal="16dp"
-                    android:layout_marginVertical="16dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="{}"
-                    android:textAlignment="center"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <Button
-                    android:id="@+id/get_latest_value_left"
-                    android:text="Get LatestValue"
-                    android:layout_marginHorizontal="16dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"/>
 
                 <TextView
                     android:id="@+id/battery_status_left"
@@ -116,10 +181,44 @@
                     android:text="Right"
                     android:layout_marginHorizontal="16dp"
                     android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
+                    android:layout_height="wrap_content"
                     android:gravity="center"/>
 
+                <Button
+                    android:id="@+id/button_calibration_right"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="16dp"
+                    android:text="Pressure Calibration"
+                    android:enabled="false" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_right_acc"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_right_gyro"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_right_quat"
+                    android:layout_width="match_parent"
+                    android:layout_height="96dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
+
+                <io.orphe.orphecoresdkforandroid.SensorLineChartView
+                    android:id="@+id/chart_right_pressure"
+                    android:layout_width="match_parent"
+                    android:layout_height="112dp"
+                    android:layout_marginHorizontal="8dp"
+                    android:layout_marginTop="8dp" />
 
                 <TextView
                     android:id="@+id/text_connection_status_right"
@@ -133,29 +232,6 @@
                     app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintTop_toTopOf="parent" />
-
-                <TextView
-                    android:id="@+id/text_value_result_right"
-                    android:layout_marginHorizontal="16dp"
-                    android:layout_marginVertical="16dp"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="{}"
-                    android:textAlignment="center"
-                    app:layout_constraintBottom_toBottomOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent"
-                    app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintTop_toTopOf="parent" />
-
-                <Button
-                    android:id="@+id/get_latest_value_right"
-                    android:text="Get LatestValue"
-                    android:layout_marginHorizontal="16dp"
-                    android:layout_width="match_parent"
-                    android:layout_height="0dp"
-                    android:layout_weight="1"
-                    android:gravity="center"/>
-
 
                 <TextView
                     android:id="@+id/battery_status_right"
@@ -173,7 +249,66 @@
 
         </LinearLayout>
 
+        <TextView
+            android:id="@+id/text_measurement_status"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp"
+            android:gravity="center"
+            android:text="Ready / Left: 0, Right: 0"
+            android:textSize="16sp" />
 
-    </LinearLayout>
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/button_start_measurement"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:layout_weight="1"
+                android:text="Start" />
+
+            <Button
+                android:id="@+id/button_stop_measurement"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:layout_weight="1"
+                android:text="Stop &amp; Save" />
+
+            <Button
+                android:id="@+id/button_clear_measurement"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginHorizontal="8dp"
+                android:layout_weight="1"
+                android:text="Clear" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="16dp"
+            android:text="Measurement History"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:id="@+id/layout_measurement_history"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="24dp"
+            android:orientation="vertical" />
+
+
+        </LinearLayout>
+
+    </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

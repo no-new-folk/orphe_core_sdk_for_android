@@ -11,7 +11,6 @@ import androidx.annotation.RequiresApi;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -19,11 +18,14 @@ import java.util.Map;
  */
 public class OrpheInsoleValue {
 
+    static final int PACKET_LENGTH_200_HZ = 104;
+    static final int PACKET_LENGTH_100_HZ = 72;
+
     /// 圧力係数のデフォルト値
-    private static double DEFAULT_COEFFICIENT1 = 2.77942E+00;
-    private static double DEFAULT_COEFFICIENT2 = 2.08348E-03;
-    private static double DEFAULT_COEFFICIENT3 = 4.14411E+00;
-    private static double DEFAULT_THRESHOLD = 240;
+    private static final double DEFAULT_COEFFICIENT1 = 2.77942;
+    private static final double DEFAULT_COEFFICIENT2 = 0.00235;
+    private static final double DEFAULT_COEFFICIENT3 = 4.14411;
+    private static final double DEFAULT_THRESHOLD = 240.0;
 
 
     /**
@@ -59,7 +61,10 @@ public class OrpheInsoleValue {
                           /// ジャイロによる角度の範囲
                           @NonNull final double gyroX,
                           @NonNull final double gyroY,
-                          @NonNull final double gyroZ
+                          @NonNull final double gyroZ,
+
+                          /// SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+                          @NonNull final long receivedAt
 
                      ){
       this.sidePosition = sidePosition;
@@ -83,6 +88,7 @@ public class OrpheInsoleValue {
       this.quatX = 0.0;
       this.quatY = 0.0;
       this.quatZ = 0.0;
+      this.receivedAt = receivedAt;
     }
 
 
@@ -125,7 +131,10 @@ public class OrpheInsoleValue {
                           @NonNull final double quatW,
                           @NonNull final double quatX,
                           @NonNull final double quatY,
-                          @NonNull final double quatZ
+                          @NonNull final double quatZ,
+
+                          /// SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+                          @NonNull final long receivedAt
 
                      ){
       this.sidePosition = sidePosition;
@@ -149,6 +158,7 @@ public class OrpheInsoleValue {
       this.quatX = quatX;
       this.quatY = quatY;
       this.quatZ = quatZ;
+      this.receivedAt = receivedAt;
     }
 
     /**
@@ -202,16 +212,90 @@ public class OrpheInsoleValue {
      * @param accRange 加速度レンジ
      * @param gyroRange ジャイロレンジ
      * @param coefficientMap 圧力係数
+     * @param receivedAt SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
      * @return OrpheInsoleValue
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static OrpheInsoleValue[] fromBytes(
-            byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange, Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> coefficientMap) throws Exception {
+            byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange, Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> coefficientMap, long receivedAt) throws Exception {
+        return fromBytes(
+                bytes,
+                sidePosition,
+                accRange,
+                gyroRange,
+                OrpheInsolePressureCalibration.fromMap(coefficientMap),
+                receivedAt
+        );
+    }
+
+    /**
+     * バイト配列からOrpheInsoleValueを生成します。
+     *
+     * @param bytes バイト配列
+     * @param sidePosition 取り付け位置
+     * @param accRange 加速度レンジ
+     * @param gyroRange ジャイロレンジ
+     * @param pressureCalibration 6点の圧力補正設定
+     * @param receivedAt SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+     * @return OrpheInsoleValue
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    static OrpheInsoleValue[] fromBytes(
+            byte[] bytes,
+            OrpheSidePosition sidePosition,
+            OrpheAccRange accRange,
+            OrpheGyroRange gyroRange,
+            OrpheInsolePressureCalibration pressureCalibration,
+            long receivedAt
+    ) throws Exception {
+        return fromBytes(
+                bytes,
+                sidePosition,
+                accRange,
+                gyroRange,
+                pressureCalibration,
+                receivedAt,
+                OrpheInsoleSamplingRate.hz200
+        );
+    }
+
+    /**
+     * request / bestEffort の出力レートを指定してセンサーパケットを変換します。
+     * FWの蓄積データ (0x36) は200Hz固定のため、100Hz指定時は0ms/10msの2点へ間引きます。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.O)
+    static OrpheInsoleValue[] fromBytes(
+            byte[] bytes,
+            OrpheSidePosition sidePosition,
+            OrpheAccRange accRange,
+            OrpheGyroRange gyroRange,
+            OrpheInsolePressureCalibration pressureCalibration,
+            long receivedAt,
+            OrpheInsoleSamplingRate outputSamplingRate
+    ) throws Exception {
+
+        final OrpheInsolePressureCalibration calibration = pressureCalibration == null
+                ? OrpheInsolePressureCalibration.DEFAULT
+                : pressureCalibration;
+
+        if (bytes == null || bytes.length == 0) {
+            throw new IllegalArgumentException("Sensor packet is empty.");
+        }
+
+        final int packetType = getUint8(bytes, 0);
+        if ((packetType == 54 || packetType == 55) && bytes.length < PACKET_LENGTH_200_HZ) {
+            throw new IllegalArgumentException(
+                    "Sensor packet is too short. type=" + packetType + ", length=" + bytes.length);
+        }
+        if (packetType == 56 && bytes.length < PACKET_LENGTH_100_HZ) {
+            throw new IllegalArgumentException(
+                    "Sensor packet is too short. type=" + packetType + ", length=" + bytes.length);
+        }
 
         final ArrayList<OrpheInsoleValue> res = new ArrayList();
         int index = 0;
         boolean isResend = false;
-        switch (getUint8(bytes, 0)) {
+        switch (packetType) {
             case 51:
             case 52:
             case 53: {
@@ -232,12 +316,14 @@ public class OrpheInsoleValue {
                         getUint8(bytes, 5),
                         getUint16(bytes, 6) * 1000
                 );
-                for (int s = 3; s >= 0; s--) {
+                final int[] samplePositions = outputSamplingRate == OrpheInsoleSamplingRate.hz100
+                        ? new int[]{3, 1}
+                        : new int[]{3, 2, 1, 0};
+                for (int outputIndex = 0; outputIndex < samplePositions.length; outputIndex++) {
+                    final int s = samplePositions[outputIndex];
                     index = s * 24 + 8;
-                    final long duration = s == 0
-                            ? 0
-                            : 5 * 1000;
-                    final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
+                    final long duration = (3 - s) * 5_000_000L;
+                    final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     // TODO: 計算で出力
                     final double quatW = 0;
                     final double quatX = 0;
@@ -250,65 +336,23 @@ public class OrpheInsoleValue {
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
                     // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 16) + "ToeInside: " + parseInt(bytes, 12) +"MidOutside: " +  parseInt(bytes, 20) + "Center: " + parseInt(bytes, 18) + "MidInside: " + parseInt(bytes, 14) + "Heel" +  parseInt(bytes, 22));
-                    final double pressureToeInside = milliVoltToNewton((double) getUint16(bytes, index + 12), 1,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 14), 2,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 16), 3,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 18), 4,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 20), 5,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 22), 6,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
+                    final double pressureToeInside = calibratedPressure(
+                            getUint16(bytes, index + 12), calibration, OrpheInsoleSensorPosition.toeInside);
+                    final double pressureMidInside = calibratedPressure(
+                            getUint16(bytes, index + 14), calibration, OrpheInsoleSensorPosition.midInside);
+                    final double pressureToeOutside = calibratedPressure(
+                            getUint16(bytes, index + 16), calibration, OrpheInsoleSensorPosition.toeOutside);
+                    final double pressureCenter = calibratedPressure(
+                            getUint16(bytes, index + 18), calibration, OrpheInsoleSensorPosition.center);
+                    final double pressureMidOutside = calibratedPressure(
+                            getUint16(bytes, index + 20), calibration, OrpheInsoleSensorPosition.midOutside);
+                    final double pressureHeel = calibratedPressure(
+                            getUint16(bytes, index + 22), calibration, OrpheInsoleSensorPosition.heel);
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
                                     serialNumber,
-                                    0,
+                                    samplePositions.length - outputIndex - 1,
                                     timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                                     timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                                     pressureToeOutside,
@@ -322,7 +366,8 @@ public class OrpheInsoleValue {
                                     accZ,
                                     gyroX,
                                     gyroY,
-                                    gyroZ
+                                    gyroZ,
+                                    receivedAt
 
                             )
                     );
@@ -345,10 +390,8 @@ public class OrpheInsoleValue {
                 );
                 for (int s = 1; s >= 0; s--) {
                     index = s * 32 + 8;
-                    final long duration = s == 0
-                            ? 0
-                            : 5 * 1000;
-                    final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
+                    final long duration = (1 - s) * 10_000_000L;
+                    final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     // TODO: 計算で出力
                     final double quatW = parseInt(bytes, index) / 16384.0;
                     final double quatX = parseInt(bytes, index + 2) / 16384.0;
@@ -361,65 +404,23 @@ public class OrpheInsoleValue {
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
                     // Log.d(TAG, "ToeOutside: " + parseInt(bytes, 20) + "ToeInside: " + parseInt(bytes, 24) +"MidOutside: " +  parseInt(bytes, 22) + "pressureCenter: " + parseInt(bytes, 26) + "pressureMidInside: " + parseInt(bytes, 28) + "Heel" +  parseInt(bytes, 30));
-                    final double pressureToeInside = milliVoltToNewton((double) getUint16(bytes, index + 20), 1,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureMidInside = milliVoltToNewton((double) getUint16(bytes, index + 22), 2,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midInside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureToeOutside = milliVoltToNewton((double) getUint16(bytes, index + 24), 3,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.toeOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureCenter = milliVoltToNewton((double) getUint16(bytes, index + 26), 4,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.center, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureMidOutside = milliVoltToNewton((double) getUint16(bytes, index + 28), 5,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.midOutside, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
-                    final double pressureHeel = milliVoltToNewton((double) getUint16(bytes, index + 30), 6,
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient1, k -> DEFAULT_COEFFICIENT1),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient2, k -> DEFAULT_COEFFICIENT2),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.coefficient3, k -> DEFAULT_COEFFICIENT3),
-                            coefficientMap.computeIfAbsent(OrpheInsoleSensorPosition.heel, k -> new HashMap<>())
-                                    .computeIfAbsent(OrpheInsoleCoefficient.threshold, k -> DEFAULT_THRESHOLD));
+                    final double pressureToeInside = calibratedPressure(
+                            getUint16(bytes, index + 20), calibration, OrpheInsoleSensorPosition.toeInside);
+                    final double pressureMidInside = calibratedPressure(
+                            getUint16(bytes, index + 22), calibration, OrpheInsoleSensorPosition.midInside);
+                    final double pressureToeOutside = calibratedPressure(
+                            getUint16(bytes, index + 24), calibration, OrpheInsoleSensorPosition.toeOutside);
+                    final double pressureCenter = calibratedPressure(
+                            getUint16(bytes, index + 26), calibration, OrpheInsoleSensorPosition.center);
+                    final double pressureMidOutside = calibratedPressure(
+                            getUint16(bytes, index + 28), calibration, OrpheInsoleSensorPosition.midOutside);
+                    final double pressureHeel = calibratedPressure(
+                            getUint16(bytes, index + 30), calibration, OrpheInsoleSensorPosition.heel);
                     res.add(
                             new OrpheInsoleValue(
                                     sidePosition,
                                     serialNumber,
-                                    0,
+                                    s,
                                     timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                                     timestamp.toInstant(ZoneOffset.UTC).toEpochMilli(),
                                     pressureToeOutside,
@@ -437,7 +438,8 @@ public class OrpheInsoleValue {
                                     quatW,
                                     quatX,
                                     quatY,
-                                    quatZ
+                                    quatZ,
+                                    receivedAt
                                     )
                     );
                 }
@@ -448,31 +450,29 @@ public class OrpheInsoleValue {
         return res.toArray(array);
     }
 
-    public static double milliVoltToNewton(double milliVolt, int number, Double coefficient1, Double coefficient2,
-            Double coefficient3, Double threshold) {
-        if (coefficient1 == null || coefficient1 == 0) {
-            coefficient1 = DEFAULT_COEFFICIENT1;
-        }
-        if (coefficient2 == null || coefficient2 == 0) {
-            coefficient2 = DEFAULT_COEFFICIENT2;
-        }
-        if (coefficient3 == null || coefficient3 == 0) {
-            coefficient3 = DEFAULT_COEFFICIENT3;
-        }
-        if (threshold == null || threshold == 0) {
-            threshold = DEFAULT_THRESHOLD;
-        }
-        if (milliVolt > threshold) {
-            // if (number == 6) {
-                // y = 2.77942 * np.exp(2.08348E-03 * x) + 4.14411
-                return coefficient1 * Math.exp(coefficient2 * milliVolt) + coefficient3;
-            // } else {
-                // y = 1.22074E-08 * (x + 1)**3.04692 + 3.64240
-                // return 1.22074E-00 * Math.pow(milliVolt + 1, 3.04692) + 3.64240;
-            // }
-        } else {
+    private static double calibratedPressure(
+            final double milliVolt,
+            @NonNull final OrpheInsolePressureCalibration pressureCalibration,
+            @NonNull final OrpheInsoleSensorPosition sensorPosition
+    ) {
+        final OrpheInsolePressureCoefficient coefficient =
+                pressureCalibration.coefficientFor(sensorPosition);
+        return milliVoltToNewton(
+                milliVolt,
+                coefficient.coefficient1,
+                coefficient.coefficient3
+        );
+    }
+
+    public static double milliVoltToNewton(double milliVolt, Double coefficient1, Double coefficient3) {
+        if (milliVolt < 0.0 || milliVolt >= 10000.0 || milliVolt <= DEFAULT_THRESHOLD) {
             return 0.0;
         }
+
+        final double c1 = coefficient1 == null ? DEFAULT_COEFFICIENT1 : coefficient1;
+        final double c3 = coefficient3 == null ? DEFAULT_COEFFICIENT3 : coefficient3;
+        final double result = c1 * Math.exp(DEFAULT_COEFFICIENT2 * milliVolt) + c3;
+        return Math.max(0.0, result);
     }
 
     /**
@@ -570,9 +570,14 @@ public class OrpheInsoleValue {
      */
     @NonNull public final double quatZ;
 
+    /**
+     * SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+     */
+    @NonNull public final long receivedAt;
+
 
     private static int parseInt(@NonNull byte[] bytes,  int index) {
-        return (int)((getInt8(bytes, index) << 8) + getInt8(bytes, index + 1));
+        return OrpheByteParser.getInt16BigEndian(bytes, index);
     }
 
     private static int getUint16(@NonNull byte[] data, int index) {
@@ -580,8 +585,5 @@ public class OrpheInsoleValue {
     }
     private static byte getUint8(@NonNull byte[] data, int index) {
         return (byte) (data[index] & 0xFF);
-    }
-    private static byte getInt8(@NonNull byte[] data, int index) {
-        return (byte) data[index];
     }
 }

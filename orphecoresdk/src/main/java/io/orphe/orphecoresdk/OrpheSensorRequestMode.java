@@ -3,7 +3,8 @@ package io.orphe.orphecoresdk;
 import androidx.annotation.NonNull;
 
 /**
- * センサーの取得モード
+ * デバイスへ書き込む低レベルのセンサー送信モード。
+ * SDK利用者が受信戦略を選択する場合は{@link OrpheSensorReceiveMode}を使用します。
  */
 public enum OrpheSensorRequestMode {
         /// リアルタイム
@@ -13,10 +14,10 @@ public enum OrpheSensorRequestMode {
         request(2),
 
         /// インソール向けリアルタイム
-        realtimeForInsole(3);
+        realtimeForInsole(3),
 
         /// インソール向けリアルタイム（クオータニオン付き）
-        // realtimeForInsoleWithQuaternion(4);
+        realtimeForInsoleWithQuaternion(4);
 
         /**
          * センサーの取得モード

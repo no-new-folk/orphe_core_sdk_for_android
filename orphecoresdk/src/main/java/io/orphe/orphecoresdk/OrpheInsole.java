@@ -25,9 +25,6 @@ import android.util.Log;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Map;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
@@ -47,6 +44,11 @@ import java.util.UUID;
 public class OrpheInsole {
     private static final String TAG = OrpheInsole.class.getSimpleName();
     private static final long SCAN_PERIOD = 20000; // スキャンの期間（ミリ秒）
+    private static final int SYNC_DATE_TIME_TRY_COUNT = 3;
+    private static final long SYNC_DATE_TIME_WAIT_MS = 100;
+    private static final long SENSOR_COMMAND_INTERVAL_MS = 100L;
+    private static final int SAMPLING_RATE_MAX_RETRY_COUNT = 3;
+    private static final long SAMPLING_RATE_RETRY_DELAY_MS = 500L;
     private final Context mContext;
     private final OrpheInsoleCallback mOrpheCallback;
     private BluetoothLeScanner mBluetoothLeScanner;
@@ -59,19 +61,85 @@ public class OrpheInsole {
 
     private int mLatestSerialNumber;
     private LocalDateTime mLatestSerialNumberTime;
+    private long mLatestSerialNumberReceivedAtMillis = -1L;
+    private boolean mSyncDateTimeInProgress;
+    private int mSyncDateTimeReadCount;
+    private long mSyncDateTimeTotalRttMillis;
+    private long mSyncDateTimeReadStartMillis;
+    private BluetoothGattCharacteristic mSyncDateTimeCharacteristic;
 
     private boolean mDebugMode;
+    private OrpheInsoleSensorConfig mSensorConfig;
+    private boolean mRequestLoopStarted;
+    private OrpheBestEffortRequester<OrpheInsoleValue[]> mBestEffortRequester;
+    private OrpheBestEffortInitializer mBestEffortInitializer;
+    private OrpheInsoleValueAccumulator mBestEffortValues =
+            new OrpheInsoleValueAccumulator();
+    private final OrpheInsoleSamplingRateGuard mSamplingRateGuard =
+            new OrpheInsoleSamplingRateGuard(SAMPLING_RATE_MAX_RETRY_COUNT);
+    private boolean mSamplingRateValidationActive;
+    private boolean mClosed;
+    private final Runnable mRequestLoopRunnable = () -> {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            requestLatestInsoleValueForBestEffortMode();
+        }
+    };
+    private final Runnable mBestEffortInitializationRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (mBestEffortInitializer == null || !mBestEffortInitializer.isRunning()) {
+                return;
+            }
+            mBestEffortInitializer.tick(System.currentTimeMillis());
+            mHandler.postDelayed(this, SENSOR_COMMAND_INTERVAL_MS);
+        }
+    };
+    private final Runnable mSamplingRateRetryRunnable = () -> {
+        mSamplingRateGuard.retryStarted();
+        if (mClosed
+                || status() != OrpheCoreStatus.connected
+                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime
+                || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            return;
+        }
+        Log.w(TAG, "Retrying sensor sampling rate: " + mSensorConfig.samplingRate);
+        mSamplingRateValidationActive = false;
+        stopRequestLoop();
+        resetBestEffortAnchorCandidate();
+        cancelRequestingSensorDataInternal();
+        applySensorConfigAfterNotificationStarted(false);
+    };
 
-    private Map<OrpheInsoleSensorPosition, Map<OrpheInsoleCoefficient, Double>> mCoefficientMap = new HashMap<>();
+    private volatile OrpheInsolePressureCalibration mPressureCalibration =
+            OrpheInsolePressureCalibration.DEFAULT;
 
     /**
-     * 圧力係数の設定
+     * 6点すべての圧力補正値を一括設定します。
+     *
+     * @param pressureCalibration 6点の圧力補正設定
+     */
+    public synchronized void setPressureCalibration(
+            @NonNull final OrpheInsolePressureCalibration pressureCalibration
+    ) {
+        if (pressureCalibration == null) {
+            throw new IllegalArgumentException("Pressure calibration must not be null.");
+        }
+        mPressureCalibration = pressureCalibration;
+    }
+
+    /**
+     * 圧力係数の設定。設定可能な係数はcoefficient1とcoefficient3です。
+     * coefficient2と閾値はdemo010と同じ固定値を使用します。
      * @param sensorPosition センサーの取り付け位置
      * @param coefficient 圧力係数
      * @param value 圧力係数の値
      */
-    public void setCoefficient(OrpheInsoleSensorPosition sensorPosition, OrpheInsoleCoefficient coefficient, double value) {
-        mCoefficientMap.computeIfAbsent(sensorPosition, k -> new HashMap<>()).put(coefficient, value);
+    public synchronized void setCoefficient(
+            @NonNull final OrpheInsoleSensorPosition sensorPosition,
+            @NonNull final OrpheInsoleCoefficient coefficient,
+            final double value
+    ) {
+        mPressureCalibration = mPressureCalibration.withCoefficient(sensorPosition, coefficient, value);
     }
 
 
@@ -113,6 +181,16 @@ public class OrpheInsole {
      */
     public OrpheInsoleValue getLatestValue() {
         return mLatestValue;
+    }
+
+    /**
+     * 現在のbestEffortセッションで取得できた全値をシリアル順で返します。
+     *
+     * @return SDK内でマージ済みの全値
+     */
+    @NonNull
+    public OrpheInsoleValue[] getBestEffortValues() {
+        return mBestEffortValues.snapshot();
     }
 
     /**
@@ -163,12 +241,32 @@ public class OrpheInsole {
      * @param debugMode     デバッグモード
      */
     public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange, boolean debugMode) {
+        this(context, orpheCallback, sidePosition, accRange, gyroRange, debugMode, OrpheInsoleSensorConfig.DEFAULT);
+    }
+
+    /**
+     * ORPHE INSOLEを管理します。
+     * インスタンス化したあと[startScan]で対応しているORPHE INSOLEを探し、[connect]で接続します。
+     * [disconnect]で切断します。
+     *
+     * @param context       コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition  この[Orphe]に対応する取り付け位置
+     * @param accRange      加速度レンジの設定
+     * @param gyroRange     ジャイロレンジの設定
+     * @param debugMode     デバッグモード
+     * @param sensorConfig  センサー値取得初期設定
+     */
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange, boolean debugMode, @NonNull final OrpheInsoleSensorConfig sensorConfig) {
         mContext = context;
         mOrpheCallback = orpheCallback;
         this.sidePosition = sidePosition;
         this.accRange = accRange;
         this.gyroRange = gyroRange;
         this.mDebugMode = debugMode;
+        this.mSensorConfig = sensorConfig;
+        createBestEffortInitializer();
+        createBestEffortRequester();
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -198,6 +296,20 @@ public class OrpheInsole {
 
     /**
      * ORPHE INSOLEを管理します。
+     *
+     * @param context       コンテキスト
+     * @param orpheCallback コールバック引数
+     * @param sidePosition  この[Orphe]に対応する取り付け位置
+     * @param accRange      加速度レンジの設定
+     * @param gyroRange     ジャイロレンジの設定
+     * @param sensorConfig  センサー値取得初期設定
+     */
+    public OrpheInsole(@NonNull final Context context, @NonNull final OrpheInsoleCallback orpheCallback, @NonNull final OrpheSidePosition sidePosition, @NonNull final OrpheAccRange accRange, @NonNull final OrpheGyroRange gyroRange, @NonNull final OrpheInsoleSensorConfig sensorConfig) {
+        this(context, orpheCallback, sidePosition, accRange, gyroRange, false, sensorConfig);
+    }
+
+    /**
+     * ORPHE INSOLEを管理します。
      * インスタンス化したあと[startScan]で対応しているORPHE COREを探し、[connect]で接続します。
      * [disconnect]で切断します。
      *
@@ -209,6 +321,28 @@ public class OrpheInsole {
         this(context, orpheCallback, sidePosition, OrpheAccRange.range16, OrpheGyroRange.range2000);
     }
 
+    /**
+     * センサー値取得設定を変更します。接続中の場合は次回接続時に反映されます。
+     *
+     * @param sensorConfig センサー値取得設定
+     */
+    public void setSensorConfig(@NonNull final OrpheInsoleSensorConfig sensorConfig) {
+        final OrpheSensorReceiveMode previousReceiveMode = mSensorConfig.receiveMode;
+        resetSamplingRateGuard();
+        stopRequestLoop();
+        resetBestEffortAnchorCandidate();
+        mSensorConfig = sensorConfig;
+        createBestEffortRequester();
+        if (mStatus == OrpheCoreStatus.connected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            cancelRequestingSensorDataInternal();
+            if (previousReceiveMode != OrpheSensorReceiveMode.realtime
+                    && sensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
+                stopAccumulation();
+            }
+            applySensorConfigAfterNotificationStarted();
+        }
+    }
+
 
     /**
      * ORPHE INSOLEのスキャンを開始します。
@@ -216,6 +350,9 @@ public class OrpheInsole {
      */
     @SuppressLint("MissingPermission")
     public void startScan() {
+        if (mClosed || mBluetoothLeScanner == null) {
+            return;
+        }
         if (mStatus == OrpheCoreStatus.disconnecting || mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting) {
             return;
         }
@@ -278,6 +415,11 @@ public class OrpheInsole {
         if (mStatus != OrpheCoreStatus.connected) {
             return;
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime) {
+            stopAccumulation();
+            stopRequestLoop();
+        }
         mStatus = OrpheCoreStatus.disconnecting;
         if (mBluetoothGatt != null) {
             mBluetoothGatt.disconnect();
@@ -292,6 +434,9 @@ public class OrpheInsole {
      */
     @SuppressLint("MissingPermission")
     public void connect(BluetoothDevice device) {
+        if (mClosed || device == null || mBluetoothLeScanner == null) {
+            return;
+        }
         if (mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting) {
             return;
         }
@@ -350,7 +495,14 @@ public class OrpheInsole {
             Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.toString());
             return;
         }
-        mBluetoothGatt.writeCharacteristic(characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mBluetoothGatt.writeCharacteristic(
+                    characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+        } else {
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+            characteristic.setValue(value);
+            mBluetoothGatt.writeCharacteristic(characteristic);
+        }
     }
 
     /**
@@ -372,20 +524,97 @@ public class OrpheInsole {
             Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME.toString());
             return;
         }
-        final LocalDateTime now = LocalDateTime.now();
-        final int res = mBluetoothGatt.writeCharacteristic(characteristic, new byte[]{
+        mSyncDateTimeInProgress = true;
+        mSyncDateTimeReadCount = 0;
+        mSyncDateTimeTotalRttMillis = 0;
+        mSyncDateTimeCharacteristic = characteristic;
+        readDateTimeForSync();
+
+    }
+
+    /**
+     * 保留中の処理を破棄し、BLEリソースを解放します。このインスタンスは再利用できません。
+     */
+    @SuppressLint("MissingPermission")
+    public void close() {
+        mClosed = true;
+        resetSamplingRateGuard();
+        mHandler.removeCallbacksAndMessages(null);
+        stopRequestLoop();
+        if (mBluetoothLeScanner != null && mStatus == OrpheCoreStatus.scanned) {
+            mBluetoothLeScanner.stopScan(scanCallback);
+        }
+        if (mBluetoothGatt != null) {
+            mBluetoothGatt.disconnect();
+            mBluetoothGatt.close();
+            mBluetoothGatt = null;
+        }
+        mBluetoothDevice = null;
+        mStatus = OrpheCoreStatus.none;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @SuppressLint("MissingPermission")
+    private void readDateTimeForSync() {
+        if (!mSyncDateTimeInProgress || mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null || mSyncDateTimeCharacteristic == null) {
+            finishSyncDateTime();
+            return;
+        }
+        mSyncDateTimeReadStartMillis = System.currentTimeMillis();
+        if (!mBluetoothGatt.readCharacteristic(mSyncDateTimeCharacteristic)) {
+            Log.d(TAG, "Could not read characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DATE_TIME.toString());
+            finishSyncDateTime();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void handleSyncDateTimeRead() {
+        if (!mSyncDateTimeInProgress) {
+            return;
+        }
+        mSyncDateTimeTotalRttMillis += Math.max(0, System.currentTimeMillis() - mSyncDateTimeReadStartMillis);
+        mSyncDateTimeReadCount++;
+        if (mSyncDateTimeReadCount >= SYNC_DATE_TIME_TRY_COUNT) {
+            finishSyncDateTime();
+            return;
+        }
+        new Handler(Looper.getMainLooper()).postDelayed(this::readDateTimeForSync, SYNC_DATE_TIME_WAIT_MS);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @SuppressLint("MissingPermission")
+    private void finishSyncDateTime() {
+        final BluetoothGattCharacteristic characteristic = mSyncDateTimeCharacteristic;
+        final long offsetMillis = mSyncDateTimeReadCount > 0
+                ? mSyncDateTimeTotalRttMillis / (mSyncDateTimeReadCount * 2L)
+                : 0;
+        mSyncDateTimeInProgress = false;
+        mSyncDateTimeReadCount = 0;
+        mSyncDateTimeTotalRttMillis = 0;
+        mSyncDateTimeReadStartMillis = 0;
+        mSyncDateTimeCharacteristic = null;
+        if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null || characteristic == null) {
+            return;
+        }
+        final LocalDateTime now = LocalDateTime.now().plusNanos(offsetMillis * 1_000_000L);
+        final byte[] value = new byte[]{
                 (byte)(now.getYear() - 2000),
                 (byte)(now.getMonthValue()),
                 (byte)(now.getDayOfMonth()),
                 (byte)(now.getHour()),
                 (byte)(now.getMinute()),
                 (byte)(now.getSecond()),
-                0,
-                //(byte)Math.round(now.getNano() / 1_000_000 / 10),
-        }, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
-
+                (byte)(now.getNano() / 1_000_000 / 10),
+        };
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mBluetoothGatt.writeCharacteristic(
+                    characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+        } else {
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
+            characteristic.setValue(value);
+            mBluetoothGatt.writeCharacteristic(characteristic);
+        }
     }
-
 
     /**
      * デバイスの時間を取得します。
@@ -418,7 +647,211 @@ public class OrpheInsole {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setSensorRequestMode(OrpheSensorRequestMode mode) {
+        if (mode == null) {
+            return;
+        }
         setDeviceInfo(new byte[]{13, (byte) mode.value});
+    }
+
+    /**
+     * 設定済みのINSOLEサンプリングレートをデバイスに適用します。
+     */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void applyInsoleSamplingRate() {
+        setSensorRequestMode(mSensorConfig.samplingRate.toSensorRequestMode());
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void applySensorConfigAfterNotificationStarted() {
+        applySensorConfigAfterNotificationStarted(true);
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void applySensorConfigAfterNotificationStarted(final boolean resetBestEffortValues) {
+        if (resetBestEffortValues
+                && mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+            // 過去の更新オブジェクトが保持するスナップショット時点を壊さないよう、
+            // 新しいセッションではストア自体を入れ替える。
+            mBestEffortValues = new OrpheInsoleValueAccumulator();
+        }
+        Handler handler = new Handler(Looper.getMainLooper());
+        handler.postDelayed(() -> {
+            if (mClosed || mStatus != OrpheCoreStatus.connected) {
+                return;
+            }
+            if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
+                applyInsoleSamplingRate();
+                mSamplingRateValidationActive = true;
+                return;
+            }
+
+            // FWのrequest / bestEffort蓄積データは0x36 (200Hz) 固定。
+            // Realtimeの100Hz/200Hzモードを経由せず、直接requestへ切り替える。
+            mSamplingRateValidationActive = false;
+            setSensorRequestMode(OrpheSensorRequestMode.request);
+            handler.postDelayed(() -> {
+                if (mClosed
+                        || mStatus != OrpheCoreStatus.connected
+                        || mSensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
+                    return;
+                }
+                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                    startBestEffortInitialization();
+                } else {
+                    startAccumulation();
+                }
+            }, SENSOR_COMMAND_INTERVAL_MS);
+        }, mSensorConfig.modeChangeDelayMillis);
+    }
+
+    private boolean acceptsSensorPacketHeader(final int packetHeader) {
+        if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime) {
+            return packetHeader == 54;
+        }
+        if (mSamplingRateGuard.accepts(mSensorConfig.samplingRate, packetHeader)) {
+            mHandler.removeCallbacks(mSamplingRateRetryRunnable);
+            return true;
+        }
+        if (!mSamplingRateValidationActive) {
+            return false;
+        }
+        if (mSamplingRateGuard.scheduleRetry()) {
+            Log.w(
+                    TAG,
+                    "Unexpected sensor packet header. expected="
+                            + mSensorConfig.samplingRate.sensorValueHeader
+                            + ", actual=" + packetHeader
+                            + ", retry=" + mSamplingRateGuard.retryCount()
+                            + "/" + SAMPLING_RATE_MAX_RETRY_COUNT
+            );
+            mHandler.postDelayed(
+                    mSamplingRateRetryRunnable,
+                    SAMPLING_RATE_RETRY_DELAY_MS
+            );
+        }
+        return false;
+    }
+
+    private void resetSamplingRateGuard() {
+        mHandler.removeCallbacks(mSamplingRateRetryRunnable);
+        mSamplingRateGuard.reset();
+        mSamplingRateValidationActive = false;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void startRequestLoop() {
+        if (mRequestLoopStarted
+                || mClosed
+                || mStatus != OrpheCoreStatus.connected
+                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.bestEffort) {
+            return;
+        }
+        mRequestLoopStarted = true;
+        mBestEffortRequester.start();
+        requestLatestInsoleValueForBestEffortMode();
+    }
+
+    private void stopRequestLoop() {
+        mRequestLoopStarted = false;
+        mHandler.removeCallbacks(mRequestLoopRunnable);
+        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
+        if (mBestEffortInitializer != null) {
+            mBestEffortInitializer.stop();
+        }
+        if (mBestEffortRequester != null) {
+            mBestEffortRequester.stop();
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void requestLatestInsoleValueForBestEffortMode() {
+        if (!mRequestLoopStarted
+                || mStatus != OrpheCoreStatus.connected
+                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.bestEffort) {
+            return;
+        }
+        final long nowMillis = System.currentTimeMillis();
+        mBestEffortRequester.tick(nowMillis);
+        mHandler.postDelayed(
+                mRequestLoopRunnable,
+                mBestEffortRequester.nextTickDelayMillis(
+                        nowMillis,
+                        mSensorConfig.bestEffortConfig.requestIntervalMillis
+                )
+        );
+    }
+
+    private void resetBestEffortAnchorCandidate() {
+        mLatestSerialNumberReceivedAtMillis = -1L;
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void startBestEffortInitialization() {
+        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
+        mBestEffortInitializer.start(System.currentTimeMillis());
+        mHandler.postDelayed(
+                mBestEffortInitializationRunnable,
+                SENSOR_COMMAND_INTERVAL_MS
+        );
+    }
+
+    private void createBestEffortInitializer() {
+        mBestEffortInitializer = new OrpheBestEffortInitializer(
+                new OrpheBestEffortInitializer.Listener() {
+                    @Override
+                    public void onCommand(int command) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            setDeviceInfo(new byte[]{11, (byte) command});
+                        }
+                    }
+
+                    @Override
+                    public void onComplete() {
+                        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            startRequestLoop();
+                        }
+                    }
+
+                    @Override
+                    public void onFailure(int command) {
+                        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
+                        Log.e(TAG, "Best Effort initialization failed. command=" + command);
+                    }
+                }
+        );
+    }
+
+    private void createBestEffortRequester() {
+        mBestEffortRequester = new OrpheBestEffortRequester<>(
+                20L,
+                mSensorConfig.bestEffortConfig,
+                new OrpheBestEffortRequester.Listener<OrpheInsoleValue[]>() {
+                    @Override
+                    public void onCurrentStateRequest() {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            setDeviceInfo(new byte[]{11, 1});
+                        }
+                    }
+
+                    @Override
+                    public void onRequest(@NonNull OrpheValueRequest[] requests) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            writeInsoleValueRequest(requests);
+                        }
+                    }
+
+                    @Override
+                    public void onValue(@NonNull OrpheInsoleValue[] values) {
+                        // 表示通知は受信直後に行う。要求器は欠損回収の進行だけを担当する。
+                    }
+
+                    @Override
+                    public void onMissing(int serialNumber) {
+                        mOrpheCallback.sensorValueIsNotFound(serialNumber);
+                    }
+                }
+        );
     }
     
     /**
@@ -426,7 +859,7 @@ public class OrpheInsole {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void getCurrentSerialNumber() {
-        setDeviceInfo(new byte[]{13, 1});
+        setDeviceInfo(new byte[]{11, 1});
     }
 
     /**
@@ -436,6 +869,9 @@ public class OrpheInsole {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void requestLatestInsoleValue(int length) {
+        if (!canSendManualRequest()) {
+            return;
+        }
         if (mLatestSerialNumberTime == null) {
             getCurrentSerialNumber();
             return;
@@ -451,7 +887,7 @@ public class OrpheInsole {
         if (length > 0) {
             final long startTime = now - length * 20;
             serialNumber = serialNumber + (int) Math.ceil((startTime - prev) / 20);
-            serialNumber = serialNumber % (256 * 256);
+            serialNumber = OrpheBestEffortRequester.normalizeSerialNumber(serialNumber);
             Log.d(TAG, "Request: " + serialNumber + ", " + length);
             requestInsoleValue(new OrpheValueRequest[]{
                     new OrpheValueRequest(serialNumber, length)
@@ -487,11 +923,22 @@ public class OrpheInsole {
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void requestInsoleValue(OrpheValueRequest[] requests) {
-        if (requests.length < 1) {
-            Log.e(TAG, "A minimum of one request is required.");
-        } else if (requests.length > 30) {
-            Log.e(TAG, "You cannot send more than 30 requests.");
+        if (!canSendManualRequest() || !validateRequests(requests)) {
+            return;
         }
+        writeInsoleValueRequest(requests);
+    }
+
+    /** 手動requestモードで1つのシリアル範囲を要求します。 */
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    public void requestInsoleValue(int startSerialNumber, int length) {
+        requestInsoleValue(new OrpheValueRequest[]{
+                new OrpheValueRequest(startSerialNumber, length)
+        });
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void writeInsoleValueRequest(OrpheValueRequest[] requests) {
         int i = 0;
         final byte[] byteList = new byte[122];
         for(int j = 0; j < 122; j++) {
@@ -516,11 +963,54 @@ public class OrpheInsole {
         setDeviceInfo(byteList);
     }
 
+    private boolean canSendManualRequest() {
+        if (mStatus != OrpheCoreStatus.connected) {
+            Log.w(TAG, "A sensor request requires a connected device.");
+            return false;
+        }
+        if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.request) {
+            Log.w(TAG, "Manual sensor requests are available only in request mode.");
+            return false;
+        }
+        return true;
+    }
+
+    private boolean validateRequests(OrpheValueRequest[] requests) {
+        if (requests == null || requests.length < 1) {
+            Log.e(TAG, "A minimum of one request is required.");
+            return false;
+        }
+        if (requests.length > 30) {
+            Log.e(TAG, "You cannot send more than 30 requests.");
+            return false;
+        }
+        for (OrpheValueRequest request : requests) {
+            if (request == null
+                    || request.startSerialNumber < 0
+                    || request.startSerialNumber >= OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS
+                    || request.length < 1
+                    || request.length >= OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS) {
+                Log.e(TAG, "A request contains an invalid serial number or length.");
+                return false;
+            }
+        }
+        return true;
+    }
+
     /**
      * 現在のリクエストをキャンセルします。
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void cancelRequestingSensorData() {
+        if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.request) {
+            Log.w(TAG, "cancelRequestingSensorData is available only in request mode.");
+            return;
+        }
+        cancelRequestingSensorDataInternal();
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    private void cancelRequestingSensorDataInternal() {
         setDeviceInfo(new byte[]{11, 7});
     }
 
@@ -554,17 +1044,20 @@ public class OrpheInsole {
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
             final ScanRecord record = result.getScanRecord();
+            if (record == null) {
+                return;
+            }
             final byte[] manufacturerData = record.getManufacturerSpecificData(0);
             if (device == null || manufacturerData == null) {
                 return;
             }
             String deviceName = device.getName();
             // TODO: 暫定的にManufacturerDataから探す
-            if (manufacturerData.length > 4 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
+            if (manufacturerData.length >= 15 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
                 // 左右情報が一致しない場合は排除
-                if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
+                if(sidePosition.side == OrpheSide.left && manufacturerData[6] > 0){
                     return;
-                } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
+                } else if(sidePosition.side == OrpheSide.right && manufacturerData[6] != 1){
                     return;
                 }
                 mBluetoothDevice = device;
@@ -574,9 +1067,12 @@ public class OrpheInsole {
                 return;
             }
             // 左右情報が一致しない場合は排除
-            if(sidePosition.side == OrpheSide.left && (manufacturerData.length < 6 || manufacturerData[6] > 0)){
+            if (manufacturerData.length < 7) {
                 return;
-            } else if(sidePosition.side == OrpheSide.right && (manufacturerData.length < 6 || manufacturerData[6] != 1)){
+            }
+            if(sidePosition.side == OrpheSide.left && manufacturerData[6] > 0){
+                return;
+            } else if(sidePosition.side == OrpheSide.right && manufacturerData[6] != 1){
                 return;
             }
             if (deviceName == null) {
@@ -605,12 +1101,21 @@ public class OrpheInsole {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             Log.d(TAG, "onConnectionStateChange:" + status + " " + newState);
+            if (mClosed) {
+                gatt.close();
+                return;
+            }
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             if (newState == BluetoothProfile.STATE_CONNECTED) {
                 Log.d(TAG, "connected");
                 gatt.discoverServices();
                 mainHandler.post(
                         () -> {
+                            if (mClosed) {
+                                return;
+                            }
+                            resetSamplingRateGuard();
+                            resetBestEffortAnchorCandidate();
                             mStatus = OrpheCoreStatus.connected;
                             mOrpheCallback.onConnect(gatt.getDevice());
                         }
@@ -618,8 +1123,17 @@ public class OrpheInsole {
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 Log.d(TAG, "disconnected");
                 Log.d(TAG, status().toString());
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                    stopRequestLoop();
+                }
                 mainHandler.post(
                         () -> {
+                            if (mClosed) {
+                                gatt.close();
+                                return;
+                            }
+                            resetSamplingRateGuard();
+                            resetBestEffortAnchorCandidate();
                             mStatus = OrpheCoreStatus.none;
                             mBluetoothDevice = null;
                             mOrpheCallback.onDisconnect(gatt.getDevice());
@@ -759,6 +1273,7 @@ public class OrpheInsole {
                     syncDateTime();
                     handler.postDelayed(() -> {
                         getCurrentSerialNumber();
+                        applySensorConfigAfterNotificationStarted();
                     }, 500);
                 }, 500);
             } else {
@@ -777,12 +1292,15 @@ public class OrpheInsole {
                 // Data
                 mainHandler.post(
                         () -> {
+                            if (mClosed) {
+                                return;
+                            }
                             try {
                                 final DeviceInfoValue deviceInfo = DeviceInfoValue.fromBytes(value);
                                 mDeviceInfo = deviceInfo;
                                 mOrpheCallback.gotDeviceInfo(deviceInfo);
                             } catch (Exception e) {
-                                throw new RuntimeException(e);
+                                Log.e(TAG, "Failed to parse device info. length=" + value.length, e);
                             }
                         }
                 );
@@ -792,10 +1310,16 @@ public class OrpheInsole {
                 // Data
                 mainHandler.post(
                         () -> {
+                            if (mClosed) {
+                                return;
+                            }
                             try {
                                 Log.d(TAG, "DateTime: " + value[0] + ", " + value[1] + ", " + value[2] + ", " + value[3] + ", " + value[4] + ", " + value[5] + ", " + value[6]);
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                    handleSyncDateTimeRead();
+                                }
                             } catch (Exception e) {
-                                throw new RuntimeException(e);
+                                Log.e(TAG, "Failed to parse date/time. length=" + value.length, e);
                             }
                         }
                 );
@@ -804,6 +1328,7 @@ public class OrpheInsole {
 
         @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
+            final long receivedAt = System.currentTimeMillis();
             final Handler mainHandler = new Handler(Looper.getMainLooper());
             if (mDebugMode) {
                 Log.d(TAG, "onNotified:" + characteristic.getUuid().toString() + " " + bytesToHex(value));
@@ -817,21 +1342,78 @@ public class OrpheInsole {
                 // Data
                 mainHandler.post(
                         () -> {
+                            if (mClosed) {
+                                return;
+                            }
                             try {
+                                if (value.length == 0) {
+                                    Log.w(TAG, "Ignored empty sensor notification.");
+                                    return;
+                                }
                                 switch ((byte) value[0]) {
                                     case 53:
+                                        if (value.length < 2) {
+                                            Log.w(TAG, "Ignored short request response. length=" + value.length);
+                                            return;
+                                        }
                                         switch ((byte) value[1]) {
                                             case 1:
+                                                if (value.length < 4) {
+                                                    Log.w(TAG, "Ignored short serial response. length=" + value.length);
+                                                    return;
+                                                }
                                                 final int currentSerialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
                                                 mLatestSerialNumber = currentSerialNumber;
                                                 mLatestSerialNumberTime = LocalDateTime.now();
+                                                mLatestSerialNumberReceivedAtMillis = receivedAt;
                                                 mOrpheCallback.gotCurrentSerialNumber(currentSerialNumber);
+                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                    if (value.length < 7) {
+                                                        Log.w(TAG, "Ignored short Best Effort current-state response. length="
+                                                                + value.length);
+                                                        return;
+                                                    }
+                                                    final int accumulatedCount = (int) (
+                                                            ((value[5] & 0xFF) << 8)
+                                                                    | (value[6] & 0xFF)
+                                                    );
+                                                    mBestEffortRequester.onCurrentState(
+                                                            currentSerialNumber,
+                                                            accumulatedCount,
+                                                            System.currentTimeMillis()
+                                                    );
+                                                }
                                                 break;
                                             case 2:
+                                                if (value.length < 6) {
+                                                    Log.w(TAG, "Ignored short missing-data response. length=" + value.length);
+                                                    return;
+                                                }
                                                 final int serialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
                                                 final int length = (int) (((value[4] & 0xFF) << 8) | (value[5] & 0xFF));
-                                                for (int i = 0; i < length; i++) {
-                                                    mOrpheCallback.sensorValueIsNotFound(serialNumber + i);
+                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                    mBestEffortRequester.onNotFound(
+                                                            serialNumber,
+                                                            length,
+                                                            System.currentTimeMillis()
+                                                    );
+                                                } else {
+                                                    for (int i = 0; i < length; i++) {
+                                                        mOrpheCallback.sensorValueIsNotFound(
+                                                                OrpheBestEffortRequester.normalizeSerialNumber(serialNumber + i)
+                                                        );
+                                                    }
+                                                }
+                                                break;
+                                            case 3:
+                                            case 4:
+                                            case 6:
+                                                if (mSensorConfig.receiveMode
+                                                        == OrpheSensorReceiveMode.bestEffort) {
+                                                    mBestEffortInitializer.onAcknowledged(
+                                                            value[1] & 0xFF,
+                                                            System.currentTimeMillis()
+                                                    );
                                                 }
                                                 break;
                                         }
@@ -839,17 +1421,55 @@ public class OrpheInsole {
                                     case 54:
                                     case 55:
                                     case 56:
-                                        final OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(value, sidePosition, accRange, gyroRange, mCoefficientMap);
-                                        mOrpheCallback.gotInsoleValues(values);
+                                        if (!acceptsSensorPacketHeader(value[0] & 0xFF)) {
+                                            break;
+                                        }
+                                        final OrpheInsoleValue[] values;
+                                        if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
+                                            values = OrpheInsoleValue.fromBytes(
+                                                    value,
+                                                    sidePosition,
+                                                    accRange,
+                                                    gyroRange,
+                                                    mPressureCalibration,
+                                                    receivedAt
+                                            );
+                                        } else {
+                                            values = OrpheInsoleValue.fromBytes(
+                                                    value,
+                                                    sidePosition,
+                                                    accRange,
+                                                    gyroRange,
+                                                    mPressureCalibration,
+                                                    receivedAt,
+                                                    mSensorConfig.samplingRate
+                                            );
+                                        }
                                         if (values.length > 0) {
-                                            mLatestValue = values[0];
+                                            mLatestValue = values[values.length - 1];
                                             mLatestSerialNumber = mLatestValue.serialNumber;
                                             mLatestSerialNumberTime = LocalDateTime.now();
+                                            mLatestSerialNumberReceivedAtMillis = receivedAt;
+                                            if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                final OrpheInsoleValueUpdate update =
+                                                        mBestEffortValues.add(values);
+                                                if (update != null) {
+                                                    mOrpheCallback.gotInsoleValues(update);
+                                                }
+                                                mBestEffortRequester.onValue(
+                                                        mLatestSerialNumber,
+                                                        values,
+                                                        receivedAt
+                                                );
+                                            } else {
+                                                mOrpheCallback.gotInsoleValues(values);
+                                            }
                                         }
                                         break;
                                 }
                             } catch (Exception e) {
-                                throw new RuntimeException(e);
+                                Log.e(TAG, "Ignored invalid sensor notification. type="
+                                        + (value[0] & 0xFF) + ", length=" + value.length, e);
                             }
                         }
                 );
@@ -857,6 +1477,16 @@ public class OrpheInsole {
         }
     };
 
+    static int forwardSerialDistance(int previousSerialNumber, int currentSerialNumber) {
+        return OrpheBestEffortRequester.forwardSerialDistance(
+                previousSerialNumber,
+                currentSerialNumber
+        );
+    }
+
+    static boolean isRecoverableGap(int forwardDistance, int requestLength) {
+        return forwardDistance > 1 && forwardDistance - 1 <= Math.max(1, requestLength);
+    }
 
     private static String formatInsoleId(@NonNull byte[] data) {
         long number = getUint32(data, 1);

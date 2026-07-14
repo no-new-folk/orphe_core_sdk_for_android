@@ -95,7 +95,10 @@ public class OrpheSensorValue {
     @NonNull final int dropNum,
 
     /// 30秒保持でデータ取得を行ったかどうか
-    @NonNull final boolean isStoredData
+    @NonNull final boolean isStoredData,
+
+    /// SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+    @NonNull final long receivedAt
                      ){
       this.sidePosition = sidePosition;
       this.serialNumber = serialNumber;
@@ -137,6 +140,7 @@ public class OrpheSensorValue {
       this.isResendData = isResendData;
       this.dropNum = dropNum;
       this.isStoredData = isStoredData;
+      this.receivedAt = receivedAt;
     }
 
     /**
@@ -187,11 +191,12 @@ public class OrpheSensorValue {
      * @param sidePosition 取り付け位置
      * @param accRange 加速度レンジ
      * @param gyroRange ジャイロレンジ
+     * @param receivedAt SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
      * @return OrpheSensorValueの配列
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
     public static OrpheSensorValue[] fromBytes(
-            byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange) throws Exception {
+            byte[] bytes, OrpheSidePosition sidePosition, OrpheAccRange accRange, OrpheGyroRange gyroRange, long receivedAt) throws Exception {
         final ArrayList<OrpheSensorValue> res = new ArrayList();
         int index = 0;
         boolean isResend = false;
@@ -278,7 +283,8 @@ public class OrpheSensorValue {
                                     0,
                                     false,
                                     0,
-                                    false
+                                    false,
+                                    receivedAt
                             )
                     );
                 }
@@ -362,7 +368,8 @@ public class OrpheSensorValue {
                                     0,
                                     false,
                                     0,
-                                    false
+                                    false,
+                                    receivedAt
                             )
                     );
                 }
@@ -558,6 +565,11 @@ public class OrpheSensorValue {
      */
     @NonNull public final boolean isStoredData;
 
+    /**
+     * SDKが値を受信した時刻（Android端末時刻・epochミリ秒）
+     */
+    @NonNull public final long receivedAt;
+
 
     private static double toGravityX(
       double quatW, double quatX, double quatY, double quatZ) {
@@ -664,7 +676,7 @@ public class OrpheSensorValue {
 
 
     private static int parseInt(@NonNull byte[] bytes,  int index) {
-        return (int)((getInt8(bytes, index) << 8) + getInt8(bytes, index + 1));
+        return OrpheByteParser.getInt16BigEndian(bytes, index);
     }
 
     private static short getUint16(@NonNull byte[] data, int index) {
@@ -672,8 +684,5 @@ public class OrpheSensorValue {
     }
     private static byte getUint8(@NonNull byte[] data, int index) {
         return (byte) (data[index] & 0xFF);
-    }
-    private static byte getInt8(@NonNull byte[] data, int index) {
-        return (byte) data[index];
     }
 }

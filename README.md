@@ -127,7 +127,63 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 - センサー値の取得に関して
 
-    - センサー値の取得を行うためには**センサー値送信のリクエスト**を送る必要があります。
+    - `OrpheInsoleSensorConfig`を指定すると、接続後の初期設定として受信方式とサンプリングレートを選択できます。
+
+        ```
+        OrpheInsoleSensorConfig config = new OrpheInsoleSensorConfig(
+                OrpheSensorReceiveMode.realtime,
+                OrpheInsoleSamplingRate.hz200
+        );
+        mOrpheInsole = new OrpheInsole(
+                this,
+                mOrpheInsoleCallback,
+                OrpheSidePosition.leftPlantar,
+                OrpheAccRange.range16,
+                OrpheGyroRange.range2000,
+                false,
+                config
+        );
+        ```
+
+        - `OrpheSensorReceiveMode.realtime`: デバイスが送信したセンサー値をそのままNotifyで受け取ります。
+        - `OrpheSensorReceiveMode.request`: アプリから指定した範囲だけを手動でリクエストします。
+        - `OrpheSensorReceiveMode.bestEffort`: SDKがPython版ところてんと同じcarry-over方式で常時リクエストし、欠損検出・再要求・重複排除・全体値へのシリアル順マージまで自動で行います。受信値のコールバックは欠損回収を待たず即時に呼ばれます。
+        - `OrpheInsoleSamplingRate.hz100`: 100Hz出力。`realtime`ではクオータニオン付きの0x38を受信します。`request` / `bestEffort`ではFWの200Hz蓄積データ（0x36）をSDKが100Hzへ間引くため、クオータニオンは含まれません。
+        - `OrpheInsoleSamplingRate.hz200`: 200Hz出力。`realtime`では0x37、`request` / `bestEffort`ではFWの蓄積・再要求形式である0x36を受信します。
+
+        SDK利用側で欠損を可能な限り回収しながら100Hz出力を得る場合は以下のように指定します。FWから受け取る0x36は200Hz固定で、SDKが各シリアルの4点から0ms / 10msの2点へ間引きます。クオータニオンの計算や補間は行いません。アプリ側にタイマーや再要求処理は不要です。
+
+        ```
+        OrpheInsoleSensorConfig config = new OrpheInsoleSensorConfig(
+                OrpheSensorReceiveMode.bestEffort,
+                OrpheInsoleSamplingRate.hz100
+        );
+        ```
+
+        BestEffortの既定値は、200msごとに最大200シリアルを確認し、応答を最大5秒待ちます。Android版では応答を1件以上受信した後に250ms無通信となった時点で要求を終了し、未着値を次回へcarry-overするため、部分的なBLEロスのたびに5秒待ち続けません。FWから`noData`が返った値だけを回復不能として`OrpheInsoleCallback.sensorValueIsNotFound`へ通知します。carry-overが100シリアルを超えた場合、または最新値との差が1,500シリアルを超えた場合は、FWリングバッファの安全範囲へ再同期します。
+
+        BestEffortでは、値を受信するたびに`OrpheInsoleValueUpdate`版のコールバックが呼ばれます。`getDeltaValues()`は今回受信した差分、`getAllValues()`はその時点までにSDKが取得・欠損回収できた全値です。全値はシリアル順にマージされ、実際に`getAllValues()`を呼んだ時だけ配列が生成されます。
+
+        ```
+        OrpheInsoleCallback callback = new OrpheInsoleCallback() {
+            @Override
+            public void gotInsoleValues(OrpheInsoleValueUpdate update) {
+                OrpheInsoleValue[] deltaValues = update.getDeltaValues();
+                OrpheInsoleValue[] allValues = update.getAllValues();
+            }
+        };
+        ```
+
+        従来の`gotInsoleValues(OrpheInsoleValue[] values)`を実装している場合も変更は不要です。BestEffortでは同メソッドへ即時差分が渡されます。現在の全値だけを後から参照する場合は`OrpheInsole#getBestEffortValues()`も利用できます。
+
+        サンプルアプリではBestEffortを選ぶと200Hzへ固定され、サンプリングレート選択は無効になります。また200Hz選択中はQuaternionグラフを表示しません。
+
+    - `OrpheSensorReceiveMode.request`で手動取得する場合は、接続後にセンサー値送信のリクエストを送ります。1範囲なら`requestInsoleValue(startSerialNumber, length)`、複数範囲なら`requestInsoleValue(OrpheValueRequest[])`を使用できます（最大30範囲）。
+
+        ```
+        mOrpheInsole.requestInsoleValue(1200, 100);
+        ```
+
         - `requestLatestInsoleValue`を呼び出すことで最新のセンサー値を取得することが可能です。
 
             ```
@@ -143,10 +199,10 @@ ORPHE COREに接続するためのJava SDKを提供します。
         - `requestInsoleValue`を呼び出すことで自由にデバイス内に位置時保存されているセンサー値を取得することができます。
             - `OrpheValueRequest`に最初のシリアル番号とそこから取得する件数を指定してパラメータに渡してください。（最大30種類リクエストを送ることが可能）
         
-        - リクエストは新しく送信された場合**古いリクエストが一旦すべて削除され新しいリクエストが適用されます**。常に最新値を取得したい場合は一定の間隔で`requestLatestInsoleValue`を実行していればよいですが、再送処理を行う場合は`requestInsoleValue`を呼び出した後目当てのシリアル番号に到達するまでは新しいリクエストを行わないようにしてください。
+        - 新しい手動リクエストはデバイス上の古いリクエストを置き換えます。常時取得には、要求を直列化する`bestEffort`を使用してください。
         
-    - リクエストされたセンサー値はNotifyで送信され、`OrpheInsoleCallback`の`gotInsoleValues`に渡されます。
-        - 200Hzで取得された各圧力センサー値を４つまとめて取得することができます。シリアル番号1増えるにつき4件のデータを取得することになるので**各シリアル番号ごとのインターバルは理論上20ms**になります。
+    - リクエストされたセンサー値は200Hz形式の0x36としてNotifyで送信され、`OrpheInsoleCallback`の`gotInsoleValues`に渡されます。BestEffortでは欠損箇所以降も待機させず、受信できた値から即時に通知します。
+        - `hz200`では各圧力センサー値を4つまとめて取得します。`hz100`ではSDKがその4点を2点へ間引きます。どちらもシリアル番号1増えるごとのインターバルは理論上20msです。
         - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
 
 - 作成した`OrpheInsole`オブジェクトの`disconnect`を呼び出すことで切断します。
@@ -165,14 +221,48 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 - リアルタイムモードへの切り替えは`setSensorRequestMode`を呼び出すことで可能です。
     - リセットされるともとに戻るため接続時に１度だけ実行することを推奨します。
-    - また接続後即座に変更メソッドを実行するとうまくいかない場合があるので2秒〜3秒ほど遅延させることを推奨します。
-    - インソール（圧力込み）用のリアルタイムモードは`OrpheSensorRequestMode.realtimeForInsole`と指定します。
+    - `OrpheInsoleSensorConfig`を指定した場合はSDKがNotify開始後に自動で切り替えます。
+    - インソール（圧力込み）用の200Hzリアルタイムモードは`OrpheSensorRequestMode.realtimeForInsole`、100Hzリアルタイムモードは`OrpheSensorRequestMode.realtimeForInsoleWithQuaternion`と指定します。
 
     ```
     mOrpheInsole.setSensorRequestMode(OrpheSensorRequestMode.realtimeForInsole);
     ```
 
-- 圧力の変換係数は`setCoefficient`メソッドで可能です。
+- 圧力の変換係数は`setPressureCalibration`メソッドで6点分を一括設定できます。各部位に設定可能なのは`coefficient1`と`coefficient3`です。
+
+    ```
+    OrpheInsolePressureCalibration calibration = new OrpheInsolePressureCalibration(
+            // toeInside
+            new OrpheInsolePressureCoefficient(2.77942, 4.14411),
+            // midInside
+            new OrpheInsolePressureCoefficient(2.70000, 4.10000),
+            // toeOutside
+            new OrpheInsolePressureCoefficient(2.80000, 4.20000),
+            // center
+            new OrpheInsolePressureCoefficient(2.60000, 4.00000),
+            // midOutside
+            new OrpheInsolePressureCoefficient(2.90000, 4.30000),
+            // heel
+            new OrpheInsolePressureCoefficient(3.00000, 4.40000)
+    );
+    mOrpheInsole.setPressureCalibration(calibration);
+    ```
+
+    - `OrpheInsolePressureCoefficient`の第1引数が`coefficient1`、第2引数が`coefficient3`です。
+    - コンストラクタの部位順は`toeInside`、`midInside`、`toeOutside`、`center`、`midOutside`、`heel`です。
+    - 既定値へ戻す場合は`setPressureCalibration(OrpheInsolePressureCalibration.DEFAULT)`を使用します。
+    - 従来の`setCoefficient(sensorPosition, coefficient, value)`も引き続き利用でき、現在の一括設定のうち指定した1項目だけを更新します。
+    - 計算式は`coefficient1 * exp(0.00235 * milliVolt) + coefficient3`です。
+    - `coefficient2`は`0.00235`、閾値は`240mV`の固定値です。
+    - 閾値以下、負の計算結果、または異常な入力値は`0N`として扱います。
+
+#### サンプルアプリで補正値を設定する
+
+- 左右のインソールへ接続すると、それぞれの`Pressure Calibration`ボタンが有効になります。
+- 6点の圧力センサーごとに`coefficient1`と`coefficient3`を入力し、`Save`を押すと受信中の圧力値へ即時反映されます。
+- 設定はデバイスID別に端末へ保存され、同じデバイスへ再接続したときに自動で適用されます。
+- `Reset to defaults`を押すと、そのデバイスの保存値を削除し、全6点を既定値へ戻します。
+- サンプルアプリは補正値を自動推定しません。測定などで決定した補正値を手動入力するための機能です。
 
 ### ORPHE COREの場合
 
@@ -249,13 +339,36 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 - センサー値の取得に関して
 
-    - センサー値の取得を行うためには**センサー値送信のリクエスト**を送る必要があります。
+    - `OrpheCoreSensorConfig`でINSOLEと同じ3つの受信方式を指定できます。
+
+        ```
+        OrpheCoreSensorConfig config = new OrpheCoreSensorConfig(
+                OrpheSensorReceiveMode.bestEffort
+        );
+        mOrphe = new Orphe(
+                this,
+                mOrpheCoreCallback,
+                OrpheSidePosition.leftInstep,
+                config
+        );
+        ```
+
+        - `realtime`: リアルタイムNotify
+        - `request`: アプリが指定した範囲だけを手動取得
+        - `bestEffort`: SDKがPython版ところてんと同じcarry-over方式で継続取得と欠損回収を自動実行
+
+    - `request`で手動取得する場合は、接続後にリクエストを送ります。1範囲なら`requestSensorValue(startSerialNumber, length)`、複数範囲なら`requestSensorValue(OrpheValueRequest[])`を使用できます（最大30範囲）。
+
+        ```
+        mOrphe.requestSensorValue(1200, 100);
+        ```
+
         - `requestLatestSensorValue`を呼び出すことで最新のセンサー値を取得することが可能です。
 
             ```
-            mOrpheInsole.requestLatestSensorValue();
+            mOrphe.requestLatestSensorValue();
             // もしくは
-            mOrpheInsole.requestLatestSensorValue(100);
+            mOrphe.requestLatestSensorValue(100);
             ```
 
             - `length`のパラメーターを指定した場合は、**センサー値の最終取得時刻から予想されるシリアル番号からlength件**を取得します。
@@ -265,11 +378,13 @@ ORPHE COREに接続するためのJava SDKを提供します。
         - `requestSensorValue`を呼び出すことで自由にデバイス内に位置時保存されているセンサー値を取得することができます。
             - `OrpheValueRequest`に最初のシリアル番号とそこから取得する件数を指定してパラメータに渡してください。（最大30種類リクエストを送ることが可能）
         
-        - リクエストは新しく送信された場合**古いリクエストが一旦すべて削除され新しいリクエストが適用されます**。常に最新値を取得したい場合は一定の間隔で`requestLatestSensorValue`を実行していればよいですが、再送処理を行う場合は`requestSensorValue`を呼び出した後目当てのシリアル番号に到達するまでは新しいリクエストを行わないようにしてください。
+        - 新しい手動リクエストはデバイス上の古いリクエストを置き換えます。常時取得には、要求を直列化する`bestEffort`を使用してください。
         
     - リクエストされたセンサー値はNotifyで送信され、`OrpheCoreCallback`の`gotSensorValues`に渡されます。
         - 200Hzで取得された各圧力センサー値を8つまとめて取得することができます。シリアル番号1増えるにつき8件のデータを取得することになるので**各シリアル番号ごとのインターバルは理論上40ms**になります。
         - タイムスタンプはナノ秒なので秒に変換したい場合は1000000で割ります。
+
+    - `bestEffort`の既定値はCORE / INSOLE共通で、200msごと・最大200シリアル・応答待ち5秒・carry-over上限100シリアル・リングバッファ安全上限1,500シリアルです。Android版は応答を1件以上受信した後の無通信が250ms続くと早期に要求を終了します。BLEタイムアウトは次回要求へ持ち越し、デバイス内に対象シリアルが残っておらずFWから`noData`が返った場合だけ、`OrpheCoreCallback.sensorValueIsNotFound`（INSOLEでは`OrpheInsoleCallback.sensorValueIsNotFound`）が番号ごとに呼ばれます。
 
 - またセンサー値のNotifyが有効になり、`OrpheCoreCallback`の`gotSensorValues`に各Notifyごとで送信されたセンサー値が渡されます。（１度のNotifyで最大4つのセンサー値が渡されます）
 
