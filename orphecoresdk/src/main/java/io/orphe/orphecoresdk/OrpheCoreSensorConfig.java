@@ -8,25 +8,25 @@ import androidx.annotation.NonNull;
 public class OrpheCoreSensorConfig {
     public static final OrpheCoreSensorConfig DEFAULT = new OrpheCoreSensorConfig(
             OrpheSensorReceiveMode.realtime,
-            OrpheBestEffortConfig.DEFAULT,
+            OrpheFifoConfig.DEFAULT,
             500L
     );
 
     public OrpheCoreSensorConfig(@NonNull final OrpheSensorReceiveMode receiveMode) {
-        this(receiveMode, OrpheBestEffortConfig.DEFAULT, 500L);
+        this(receiveMode, OrpheFifoConfig.DEFAULT, 500L);
     }
 
     public OrpheCoreSensorConfig(
             @NonNull final OrpheSensorReceiveMode receiveMode,
-            @NonNull final OrpheBestEffortConfig bestEffortConfig,
+            @NonNull final OrpheFifoConfig fifoConfig,
             final long modeChangeDelayMillis
     ) {
         this.receiveMode = receiveMode;
-        this.bestEffortConfig = bestEffortConfig;
+        this.fifoConfig = fifoConfig;
         this.modeChangeDelayMillis = Math.max(0L, modeChangeDelayMillis);
     }
 
     @NonNull public final OrpheSensorReceiveMode receiveMode;
-    @NonNull public final OrpheBestEffortConfig bestEffortConfig;
+    @NonNull public final OrpheFifoConfig fifoConfig;
     public final long modeChangeDelayMillis;
 }

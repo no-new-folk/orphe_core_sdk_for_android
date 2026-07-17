@@ -8,10 +8,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 
-/** COREのbestEffort値と再計算版をシリアル順に保持するSDK内部ストア。 */
+/** COREのfifo値と再計算版をシリアル順に保持するSDK内部ストア。 */
 final class OrpheSensorValueAccumulator {
     private static final int HALF_SERIAL_NUMBER_MODULUS =
-            OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS / 2;
+            OrpheFifoRequester.SERIAL_NUMBER_MODULUS / 2;
 
     private final TreeMap<Long, Packet> packets = new TreeMap<>();
     private boolean initialized;
@@ -32,7 +32,7 @@ final class OrpheSensorValueAccumulator {
         if (values.length == 0) {
             return null;
         }
-        final int serialNumber = OrpheBestEffortRequester.normalizeSerialNumber(
+        final int serialNumber = OrpheFifoRequester.normalizeSerialNumber(
                 values[0].serialNumber
         );
         final long sequence = resolveSequence(serialNumber);
@@ -53,7 +53,7 @@ final class OrpheSensorValueAccumulator {
             if (recalculated == null || recalculated.length == 0) {
                 continue;
             }
-            final int recalculatedSerial = OrpheBestEffortRequester.normalizeSerialNumber(
+            final int recalculatedSerial = OrpheFifoRequester.normalizeSerialNumber(
                     recalculated[0].serialNumber
             );
             final Packet packet = packets.get(resolveSequence(recalculatedSerial));
@@ -104,14 +104,14 @@ final class OrpheSensorValueAccumulator {
         if (!initialized) {
             return 0L;
         }
-        final int forwardDistance = OrpheBestEffortRequester.normalizeSerialNumber(
+        final int forwardDistance = OrpheFifoRequester.normalizeSerialNumber(
                 serialNumber - latestSerialNumber
         );
         if (forwardDistance <= HALF_SERIAL_NUMBER_MODULUS) {
             return latestSequence + forwardDistance;
         }
         return latestSequence
-                - (OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS - forwardDistance);
+                - (OrpheFifoRequester.SERIAL_NUMBER_MODULUS - forwardDistance);
     }
 
     private static final class Packet {

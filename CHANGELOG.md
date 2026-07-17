@@ -1,23 +1,32 @@
 # Change Log
 
+## 2026-07-17
+
+### Changes
+
+---
+
+- **CHORE**: SDK バージョンを 0.6.1 に更新し、`archives/orphecoresdk-release-0.6.1.aar` とサンプルAPK `orphe-core-sdk-sample-0.6.1.apk` を追加
+
 ## 2026-07-14
 
 ### Changes
 
 ---
 
-- **FEAT**: CORE / INSOLE 共通の受信方式として `realtime` / `request` / `bestEffort` を追加
+- **FEAT**: CORE / INSOLE 共通の受信方式として `realtime` / `request` / `fifo` を追加
+- **BREAKING**: 受信方式名をFIFOへ完全変更し、公開APIを`OrpheSensorReceiveMode.fifo`、`OrpheFifoConfig`、`getFifoValues()`へ統一（旧名称の互換APIは提供しない）
 - **FEAT**: `request`を手動要求専用とし、開始シリアル番号と件数を指定する公開APIをCORE / INSOLE双方に追加
-- **FEAT**: `bestEffort`をCORE / INSOLE共通でPython版ところてんと同じcarry-over方式へ変更。BLEタイムアウトは固定回数で打ち切らず次回要求へ持ち越し、FWの`noData`・carry-over 100件超過・リングバッファ1,500件超過で再同期する仕様に統一
-- **DEPRECATED**: `OrpheBestEffortConfig.maxRetryCount`と4引数コンストラクタを非推奨化（ソース互換のため維持し、新方式では固定リトライ回数として使用しない）
-- **FIX**: INSOLEの`bestEffort`で欠損回収待ちがリアルタイム表示を停止しないよう、受信差分を即時通知する経路と全体値のシリアル順マージを分離
-- **FIX**: Android版`bestEffort`は応答を1件以上受信した後、250ms無通信なら5秒の総タイムアウトを待たず未着シリアルをcarry-overし、左右同時取得時のリングバッファ超過を抑止
-- **FIX**: INSOLEの`request` / `bestEffort`はFW蓄積形式の0x36（200Hz）だけを受理し、`hz100`指定時はSDKで0ms / 10msの2点へ間引くよう修正
+- **FEAT**: `fifo`をCORE / INSOLE共通でPython版ところてんと同じcarry-over方式へ変更。BLEタイムアウトは固定回数で打ち切らず次回要求へ持ち越し、FWの`noData`・carry-over 100件超過・リングバッファ1,500件超過で再同期する仕様に統一
+- **DEPRECATED**: `OrpheFifoConfig.maxRetryCount`と4引数コンストラクタを非推奨化（ソース互換のため維持し、新方式では固定リトライ回数として使用しない）
+- **FIX**: INSOLEの`fifo`で欠損回収待ちがリアルタイム表示を停止しないよう、受信差分を即時通知する経路と全体値のシリアル順マージを分離
+- **FIX**: Android版`fifo`は応答を1件以上受信した後、250ms無通信なら5秒の総タイムアウトを待たず未着シリアルをcarry-overし、左右同時取得時のリングバッファ超過を抑止
+- **FIX**: INSOLEの`request` / `fifo`はFW蓄積形式の0x36（200Hz）だけを受理し、`hz100`指定時はSDKで0ms / 10msの2点へ間引くよう修正
 - **FEAT**: `OrpheInsoleValueUpdate`を追加し、更新コールバックから今回の差分と、その更新時点までの欠損回収済み全値を取得可能に変更
-- **FEAT**: CORE / INSOLEの`request` / `bestEffort`で、`orphe_insole`準拠のMadgwick 6軸フィルタにより加速度・ジャイロからクオータニオンを算出。欠損回収時は回収位置以降を時系列順に再計算
-- **FEAT**: COREにも`OrpheSensorValueUpdate`と`getBestEffortValues()`を追加し、既存配列コールバックとの互換性を維持しながら差分と再計算済み全値を取得可能に変更
-- **FEAT**: サンプルアプリの選択肢を通常利用向けの `realtime` / `bestEffort` に整理（SDKの手動 `request` APIは継続提供）
-- **FIX**: サンプルアプリはBestEffort選択時に200Hzへ固定し、Quaternionグラフを非表示。Quaternionグラフはrealtime 100Hz選択時だけ表示
+- **FEAT**: CORE / INSOLEの`request` / `fifo`で、`orphe_insole`準拠のMadgwick 6軸フィルタにより加速度・ジャイロからクオータニオンを算出。欠損回収時は回収位置以降を時系列順に再計算
+- **FEAT**: COREにも`OrpheSensorValueUpdate`と`getFifoValues()`を追加し、既存配列コールバックとの互換性を維持しながら差分と再計算済み全値を取得可能に変更
+- **FEAT**: サンプルアプリの選択肢を通常利用向けの `realtime` / `fifo` に整理（SDKの手動 `request` APIは継続提供）
+- **FIX**: サンプルアプリはFIFO選択時に200Hzへ固定し、Quaternionグラフを非表示。Quaternionグラフはrealtime 100Hz選択時だけ表示
 - **FEAT**: サンプルアプリにINSOLEの6点別圧力補正設定UIを追加し、デバイスID別の保存・接続時自動適用・既定値リセットに対応
 - **FEAT**: INSOLEの6点別圧力補正で`coefficient2`と`threshold`も設定可能にし、サンプルアプリの入力・保存・再接続時適用を4値すべてに拡張（従来の2引数APIと保存データは互換維持）
 

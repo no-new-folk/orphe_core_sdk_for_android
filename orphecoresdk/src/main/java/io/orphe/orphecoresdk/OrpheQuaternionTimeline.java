@@ -11,9 +11,9 @@ import java.util.TreeMap;
 /** 16bitシリアル順に姿勢を計算し、過去値の挿入時は後続を再計算するSDK内部ストア。 */
 final class OrpheQuaternionTimeline<T> {
     private static final int HALF_SERIAL_NUMBER_MODULUS =
-            OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS / 2;
+            OrpheFifoRequester.SERIAL_NUMBER_MODULUS / 2;
     private static final int DEFAULT_MAX_PACKETS =
-            OrpheBestEffortConfig.DEFAULT.ringBufferCapacity + 1;
+            OrpheFifoConfig.DEFAULT.ringBufferCapacity + 1;
 
     interface Adapter<T> {
         int serialNumber(@NonNull T value);
@@ -62,7 +62,7 @@ final class OrpheQuaternionTimeline<T> {
         if (values.length == 0) {
             return new Result<>(adapter.newArray(0), new ArrayList<>(), false);
         }
-        final int serialNumber = OrpheBestEffortRequester.normalizeSerialNumber(
+        final int serialNumber = OrpheFifoRequester.normalizeSerialNumber(
                 adapter.serialNumber(values[0])
         );
         final long sequence = resolveSequence(serialNumber);
@@ -143,14 +143,14 @@ final class OrpheQuaternionTimeline<T> {
         if (!initialized) {
             return 0L;
         }
-        final int forwardDistance = OrpheBestEffortRequester.normalizeSerialNumber(
+        final int forwardDistance = OrpheFifoRequester.normalizeSerialNumber(
                 serialNumber - latestSerialNumber
         );
         if (forwardDistance <= HALF_SERIAL_NUMBER_MODULUS) {
             return latestSequence + forwardDistance;
         }
         return latestSequence
-                - (OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS - forwardDistance);
+                - (OrpheFifoRequester.SERIAL_NUMBER_MODULUS - forwardDistance);
     }
 
     @NonNull

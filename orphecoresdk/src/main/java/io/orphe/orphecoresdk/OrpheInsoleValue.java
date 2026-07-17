@@ -88,6 +88,9 @@ public class OrpheInsoleValue {
       this.quatX = 0.0;
       this.quatY = 0.0;
       this.quatZ = 0.0;
+      this.eulerYaw = 0.0;
+      this.eulerPitch = 0.0;
+      this.eulerRoll = 0.0;
       this.receivedAt = receivedAt;
     }
 
@@ -137,6 +140,8 @@ public class OrpheInsoleValue {
                           @NonNull final long receivedAt
 
                      ){
+      final OrpheEulerAngles euler =
+              OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
       this.sidePosition = sidePosition;
       this.serialNumber = serialNumber;
       this.dataPosition = dataPosition;
@@ -158,6 +163,9 @@ public class OrpheInsoleValue {
       this.quatX = quatX;
       this.quatY = quatY;
       this.quatZ = quatZ;
+      this.eulerYaw = euler.yaw;
+      this.eulerPitch = euler.pitch;
+      this.eulerRoll = euler.roll;
       this.receivedAt = receivedAt;
     }
 
@@ -199,6 +207,13 @@ public class OrpheInsoleValue {
         builder.append(String.format("%.2f", gyroY));
         builder.append(",");
         builder.append(String.format("%.2f", gyroZ));
+        builder.append(")\n");
+        builder.append("euler(yaw,pitch,roll):(");
+        builder.append(String.format("%.2f", eulerYaw));
+        builder.append(",");
+        builder.append(String.format("%.2f", eulerPitch));
+        builder.append(",");
+        builder.append(String.format("%.2f", eulerRoll));
         builder.append(")\n");
         return builder.toString();
     }
@@ -260,7 +275,7 @@ public class OrpheInsoleValue {
     }
 
     /**
-     * request / bestEffort の出力レートを指定してセンサーパケットを変換します。
+     * request / fifo の出力レートを指定してセンサーパケットを変換します。
      * FWの蓄積データ (0x36) は200Hz固定のため、100Hz指定時は0ms/10msの2点へ間引きます。
      */
     @RequiresApi(api = Build.VERSION_CODES.O)
@@ -324,7 +339,7 @@ public class OrpheInsoleValue {
                     index = s * 24 + 8;
                     final long duration = (3 - s) * 5_000_000L;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
-                    // request / bestEffortの受信処理で、復号後に時系列姿勢を計算する。
+                    // request / fifoの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
                     final double quatX = 0;
                     final double quatY = 0;
@@ -482,7 +497,7 @@ public class OrpheInsoleValue {
         );
     }
 
-    /** request / bestEffortの200Hz計算結果を指定出力レートへ変換します。 */
+    /** request / fifoの200Hz計算結果を指定出力レートへ変換します。 */
     @NonNull
     static OrpheInsoleValue[] forOutputSamplingRate(
             @NonNull final OrpheInsoleValue[] values,
@@ -585,12 +600,12 @@ public class OrpheInsoleValue {
     @NonNull public final int dataPosition;
 
     /**
-     * 開始日時のタイムスタンプ（ナノ秒）
+     * 開始日時のタイムスタンプ（epochミリ秒）
      */
     @NonNull public final long startTime;
 
     /**
-     * 終了日時のタイムスタンプ（ナノ秒）
+     * 終了日時のタイムスタンプ（epochミリ秒）
      */
     public final long endTime;
 
@@ -662,6 +677,19 @@ public class OrpheInsoleValue {
      * クオータニオンZ
      */
     @NonNull public final double quatZ;
+
+    /**
+     * ヨー角（ラジアン）
+     */
+    @NonNull public final double eulerYaw;
+    /**
+     * ピッチ角（ラジアン）
+     */
+    @NonNull public final double eulerPitch;
+    /**
+     * ロール角（ラジアン）
+     */
+    @NonNull public final double eulerRoll;
 
     /**
      * SDKが値を受信した時刻（Android端末時刻・epochミリ秒）

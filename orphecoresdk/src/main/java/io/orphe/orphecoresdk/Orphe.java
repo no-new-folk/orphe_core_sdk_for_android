@@ -62,9 +62,9 @@ public class Orphe {
 
     private boolean mDebugMode;
     private OrpheCoreSensorConfig mSensorConfig;
-    private OrpheBestEffortRequester<OrpheSensorValue[]> mBestEffortRequester;
-    private OrpheBestEffortInitializer mBestEffortInitializer;
-    private OrpheSensorValueAccumulator mBestEffortValues =
+    private OrpheFifoRequester<OrpheSensorValue[]> mFifoRequester;
+    private OrpheFifoInitializer mFifoInitializer;
+    private OrpheSensorValueAccumulator mFifoValues =
             new OrpheSensorValueAccumulator();
     private final OrpheQuaternionTimeline<OrpheSensorValue> mQuaternionTimeline =
             OrpheQuaternionTimelines.forCore();
@@ -72,16 +72,16 @@ public class Orphe {
     private boolean mClosed;
     private final Runnable mRequestLoopRunnable = () -> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            requestLatestSensorValueForBestEffortMode();
+            requestLatestSensorValueForFifoMode();
         }
     };
-    private final Runnable mBestEffortInitializationRunnable = new Runnable() {
+    private final Runnable mFifoInitializationRunnable = new Runnable() {
         @Override
         public void run() {
-            if (mBestEffortInitializer == null || !mBestEffortInitializer.isRunning()) {
+            if (mFifoInitializer == null || !mFifoInitializer.isRunning()) {
                 return;
             }
-            mBestEffortInitializer.tick(System.currentTimeMillis());
+            mFifoInitializer.tick(System.currentTimeMillis());
             mHandler.postDelayed(this, SENSOR_COMMAND_INTERVAL_MS);
         }
     };
@@ -124,10 +124,10 @@ public class Orphe {
         return mLatestValue;
     }
 
-    /** 現在のbestEffortセッションで取得した、姿勢再計算済みの全値を返します。 */
+    /** 現在のfifoセッションで取得した、姿勢再計算済みの全値を返します。 */
     @NonNull
-    public OrpheSensorValue[] getBestEffortValues() {
-        return mBestEffortValues.snapshot();
+    public OrpheSensorValue[] getFifoValues() {
+        return mFifoValues.snapshot();
     }
 
     /**
@@ -195,8 +195,8 @@ public class Orphe {
         this.gyroRange = gyroRange;
         mDebugMode = debugMode;
         mSensorConfig = sensorConfig;
-        createBestEffortInitializer();
-        createBestEffortRequester();
+        createFifoInitializer();
+        createFifoRequester();
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             Log.e(TAG, "Unable to obtain a BluetoothAdapter.");
@@ -232,8 +232,8 @@ public class Orphe {
         stopRequestLoop();
         mQuaternionTimeline.clear();
         mSensorConfig = sensorConfig;
-        createBestEffortRequester();
-        if (mStatus == OrpheCoreStatus.connected && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        createFifoRequester();
+        if (mStatus == OrpheCoreStatus.connected) {
             cancelRequestingSensorDataInternal();
             if (previousMode != OrpheSensorReceiveMode.realtime
                     && sensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
@@ -423,7 +423,6 @@ public class Orphe {
         mBluetoothGatt.readCharacteristic(characteristic);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     @SuppressLint("MissingPermission")
     private void setDeviceInfo(byte[] value) {
         if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
@@ -439,13 +438,20 @@ public class Orphe {
             Log.d(TAG, "Could not get characteristic: " + GattUUIDDefine.UUID_CHAR_ORPHE_DEVICE_INFORMATION.toString());
             return;
         }
-        mBluetoothGatt.writeCharacteristic(characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mBluetoothGatt.writeCharacteristic(
+                    characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        } else {
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            characteristic.setValue(value);
+            mBluetoothGatt.writeCharacteristic(characteristic);
+        }
     }
 
     /**
      * デバイスの時間をアプリと同期します。
      */
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @SuppressLint("MissingPermission")
     public void syncDateTime(){
         if (mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null) {
@@ -468,7 +474,7 @@ public class Orphe {
         readDateTimeForSync();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @SuppressLint("MissingPermission")
     private void readDateTimeForSync() {
         if (!mSyncDateTimeInProgress || mStatus != OrpheCoreStatus.connected || mBluetoothGatt == null || mSyncDateTimeCharacteristic == null) {
@@ -482,7 +488,7 @@ public class Orphe {
         }
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     private void handleSyncDateTimeRead() {
         if (!mSyncDateTimeInProgress) {
             return;
@@ -496,7 +502,7 @@ public class Orphe {
         new Handler(Looper.getMainLooper()).postDelayed(this::readDateTimeForSync, SYNC_DATE_TIME_WAIT_MS);
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+    @RequiresApi(api = Build.VERSION_CODES.O)
     @SuppressLint("MissingPermission")
     private void finishSyncDateTime() {
         final BluetoothGattCharacteristic characteristic = mSyncDateTimeCharacteristic;
@@ -512,7 +518,7 @@ public class Orphe {
             return;
         }
         final LocalDateTime now = LocalDateTime.now().plusNanos(offsetMillis * 1_000_000L);
-        mBluetoothGatt.writeCharacteristic(characteristic, new byte[]{
+        final byte[] value = new byte[]{
                 (byte)(now.getYear() - 2000),
                 (byte)(now.getMonthValue()),
                 (byte)(now.getDayOfMonth()),
@@ -520,7 +526,15 @@ public class Orphe {
                 (byte)(now.getMinute()),
                 (byte)(now.getSecond()),
                 (byte)(now.getNano() / 1_000_000 / 10),
-        }, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        };
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            mBluetoothGatt.writeCharacteristic(
+                    characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+        } else {
+            characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            characteristic.setValue(value);
+            mBluetoothGatt.writeCharacteristic(characteristic);
+        }
     }
 
     /**
@@ -551,7 +565,6 @@ public class Orphe {
      *
      * @param mode センサーの取得モード
      */
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void setSensorRequestMode(OrpheSensorRequestMode mode) {
         if (mode == null) {
             return;
@@ -559,13 +572,12 @@ public class Orphe {
         setDeviceInfo(new byte[]{13, (byte) mode.value});
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void applySensorConfigAfterNotificationStarted() {
         if (mSensorConfig.receiveMode != OrpheSensorReceiveMode.realtime) {
             mQuaternionTimeline.clear();
         }
-        if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
-            mBestEffortValues = new OrpheSensorValueAccumulator();
+        if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo) {
+            mFifoValues = new OrpheSensorValueAccumulator();
         }
         mHandler.postDelayed(() -> {
             if (mClosed || mStatus != OrpheCoreStatus.connected) {
@@ -583,8 +595,8 @@ public class Orphe {
                         || mSensorConfig.receiveMode == OrpheSensorReceiveMode.realtime) {
                     return;
                 }
-                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
-                    startBestEffortInitialization();
+                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo) {
+                    startFifoInitialization();
                 } else {
                     startAccumulation();
                 }
@@ -597,57 +609,56 @@ public class Orphe {
         if (mRequestLoopStarted
                 || mClosed
                 || mStatus != OrpheCoreStatus.connected
-                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.bestEffort) {
+                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.fifo) {
             return;
         }
         mRequestLoopStarted = true;
-        mBestEffortRequester.start();
-        requestLatestSensorValueForBestEffortMode();
+        mFifoRequester.start();
+        requestLatestSensorValueForFifoMode();
     }
 
     private void stopRequestLoop() {
         mRequestLoopStarted = false;
         mHandler.removeCallbacks(mRequestLoopRunnable);
-        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
-        if (mBestEffortInitializer != null) {
-            mBestEffortInitializer.stop();
+        mHandler.removeCallbacks(mFifoInitializationRunnable);
+        if (mFifoInitializer != null) {
+            mFifoInitializer.stop();
         }
-        if (mBestEffortRequester != null) {
-            mBestEffortRequester.stop();
+        if (mFifoRequester != null) {
+            mFifoRequester.stop();
         }
     }
 
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private void requestLatestSensorValueForBestEffortMode() {
+    private void requestLatestSensorValueForFifoMode() {
         if (!mRequestLoopStarted
                 || mStatus != OrpheCoreStatus.connected
-                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.bestEffort) {
+                || mSensorConfig.receiveMode != OrpheSensorReceiveMode.fifo) {
             return;
         }
         final long nowMillis = System.currentTimeMillis();
-        mBestEffortRequester.tick(nowMillis);
+        mFifoRequester.tick(nowMillis);
         mHandler.postDelayed(
                 mRequestLoopRunnable,
-                mBestEffortRequester.nextTickDelayMillis(
+                mFifoRequester.nextTickDelayMillis(
                         nowMillis,
-                        mSensorConfig.bestEffortConfig.requestIntervalMillis
+                        mSensorConfig.fifoConfig.requestIntervalMillis
                 )
         );
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
-    private void startBestEffortInitialization() {
-        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
-        mBestEffortInitializer.start(System.currentTimeMillis());
+    private void startFifoInitialization() {
+        mHandler.removeCallbacks(mFifoInitializationRunnable);
+        mFifoInitializer.start(System.currentTimeMillis());
         mHandler.postDelayed(
-                mBestEffortInitializationRunnable,
+                mFifoInitializationRunnable,
                 SENSOR_COMMAND_INTERVAL_MS
         );
     }
 
-    private void createBestEffortInitializer() {
-        mBestEffortInitializer = new OrpheBestEffortInitializer(
-                new OrpheBestEffortInitializer.Listener() {
+    private void createFifoInitializer() {
+        mFifoInitializer = new OrpheFifoInitializer(
+                new OrpheFifoInitializer.Listener() {
                     @Override
                     public void onCommand(int command) {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -657,7 +668,7 @@ public class Orphe {
 
                     @Override
                     public void onComplete() {
-                        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
+                        mHandler.removeCallbacks(mFifoInitializationRunnable);
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                             startRequestLoop();
                         }
@@ -665,18 +676,18 @@ public class Orphe {
 
                     @Override
                     public void onFailure(int command) {
-                        mHandler.removeCallbacks(mBestEffortInitializationRunnable);
-                        Log.e(TAG, "Best Effort initialization failed. command=" + command);
+                        mHandler.removeCallbacks(mFifoInitializationRunnable);
+                        Log.e(TAG, "FIFO initialization failed. command=" + command);
                     }
                 }
         );
     }
 
-    private void createBestEffortRequester() {
-        mBestEffortRequester = new OrpheBestEffortRequester<>(
+    private void createFifoRequester() {
+        mFifoRequester = new OrpheFifoRequester<>(
                 40L,
-                mSensorConfig.bestEffortConfig,
-                new OrpheBestEffortRequester.Listener<OrpheSensorValue[]>() {
+                mSensorConfig.fifoConfig,
+                new OrpheFifoRequester.Listener<OrpheSensorValue[]>() {
                     @Override
                     public void onCurrentStateRequest() {
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -737,7 +748,7 @@ public class Orphe {
         if (length > 0) {
             final long startTime = now - length * 40;
             serialNumber = serialNumber + (int) Math.ceil((startTime - prev) / 40);
-            serialNumber = OrpheBestEffortRequester.normalizeSerialNumber(serialNumber);
+            serialNumber = OrpheFifoRequester.normalizeSerialNumber(serialNumber);
             requestSensorValue(new OrpheValueRequest[]{
                     new OrpheValueRequest(serialNumber, length)
             });
@@ -823,7 +834,6 @@ public class Orphe {
         cancelRequestingSensorDataInternal();
     }
 
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     private void cancelRequestingSensorDataInternal() {
         setDeviceInfo(new byte[]{11, 7});
     }
@@ -852,9 +862,9 @@ public class Orphe {
         for (OrpheValueRequest request : requests) {
             if (request == null
                     || request.startSerialNumber < 0
-                    || request.startSerialNumber >= OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS
+                    || request.startSerialNumber >= OrpheFifoRequester.SERIAL_NUMBER_MODULUS
                     || request.length < 1
-                    || request.length >= OrpheBestEffortRequester.SERIAL_NUMBER_MODULUS) {
+                    || request.length >= OrpheFifoRequester.SERIAL_NUMBER_MODULUS) {
                 Log.e(TAG, "A request contains an invalid serial number or length.");
                 return false;
             }
@@ -865,7 +875,6 @@ public class Orphe {
     /**
      * 生データの蓄積を開始します。
      */
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void startAccumulation() {
         setDeviceInfo(new byte[]{11, 4});
     }
@@ -873,7 +882,6 @@ public class Orphe {
     /**
      * 生データの蓄積を停止します。
      */
-    @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     public void stopAccumulation() {
         setDeviceInfo(new byte[]{11, 6});
     }
@@ -1107,7 +1115,7 @@ public class Orphe {
                         () -> {
                             try {
                                 Log.d(TAG, "DateTime: " + value[0] + ", " + value[1] + ", " + value[2] + ", " + value[3] + ", " + value[4] + ", " + value[5] + ", " + value[6]);
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                                     handleSyncDateTimeRead();
                                 }
                             } catch (Exception e) {
@@ -1152,9 +1160,9 @@ public class Orphe {
                                                 mLatestSerialNumber = currentSerialNumber;
                                                 mLatestSerialNumberTime = LocalDateTime.now();
                                                 mOrpheCallback.gotCurrentSerialNumber(currentSerialNumber);
-                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo) {
                                                     if (value.length < 7) {
-                                                        Log.w(TAG, "Ignored short Best Effort current-state response. length="
+                                                        Log.w(TAG, "Ignored short FIFO current-state response. length="
                                                                 + value.length);
                                                         return;
                                                     }
@@ -1162,7 +1170,7 @@ public class Orphe {
                                                             ((value[5] & 0xFF) << 8)
                                                                     | (value[6] & 0xFF)
                                                     );
-                                                    mBestEffortRequester.onCurrentState(
+                                                    mFifoRequester.onCurrentState(
                                                             currentSerialNumber,
                                                             accumulatedCount,
                                                             System.currentTimeMillis()
@@ -1176,8 +1184,8 @@ public class Orphe {
                                                 }
                                                 final int serialNumber = (int) (((value[2] & 0xFF) << 8) | (value[3] & 0xFF));
                                                 final int length = (int) (((value[4] & 0xFF) << 8) | (value[5] & 0xFF));
-                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
-                                                    mBestEffortRequester.onNotFound(
+                                                if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo) {
+                                                    mFifoRequester.onNotFound(
                                                             serialNumber,
                                                             length,
                                                             System.currentTimeMillis()
@@ -1185,7 +1193,7 @@ public class Orphe {
                                                 } else {
                                                     for (int i = 0; i < length; i++) {
                                                         mOrpheCallback.sensorValueIsNotFound(
-                                                                OrpheBestEffortRequester.normalizeSerialNumber(serialNumber + i)
+                                                                OrpheFifoRequester.normalizeSerialNumber(serialNumber + i)
                                                         );
                                                     }
                                                 }
@@ -1194,8 +1202,8 @@ public class Orphe {
                                             case 4:
                                             case 6:
                                                 if (mSensorConfig.receiveMode
-                                                        == OrpheSensorReceiveMode.bestEffort) {
-                                                    mBestEffortInitializer.onAcknowledged(
+                                                        == OrpheSensorReceiveMode.fifo) {
+                                                    mFifoInitializer.onAcknowledged(
                                                             value[1] & 0xFF,
                                                             System.currentTimeMillis()
                                                     );
@@ -1226,7 +1234,7 @@ public class Orphe {
                                             mLatestValue = values[values.length - 1];
                                             mLatestSerialNumber = mLatestValue.serialNumber;
                                             mLatestSerialNumberTime = LocalDateTime.now();
-                                            if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.bestEffort) {
+                                            if (mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo) {
                                                 final ArrayList<OrpheSensorValue[]>
                                                         recalculatedPackets = new ArrayList<>();
                                                 if (quaternionResult != null) {
@@ -1235,14 +1243,14 @@ public class Orphe {
                                                     );
                                                 }
                                                 final OrpheSensorValueUpdate update =
-                                                        mBestEffortValues.add(
+                                                        mFifoValues.add(
                                                                 values,
                                                                 recalculatedPackets
                                                         );
                                                 if (update != null) {
                                                     mOrpheCallback.gotSensorValues(update);
                                                 }
-                                                mBestEffortRequester.onValue(
+                                                mFifoRequester.onValue(
                                                         mLatestSerialNumber,
                                                         values,
                                                         System.currentTimeMillis()

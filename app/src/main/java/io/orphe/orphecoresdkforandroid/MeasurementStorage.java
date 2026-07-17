@@ -32,6 +32,7 @@ public class MeasurementStorage {
     private static final String RIGHT_CSV = "sensor-right.csv";
     private static final String CSV_HEADER =
             "timestamp,accX,accY,accZ,gyroX,gyroY,gyroZ,quatW,quatX,quatY,quatZ,"
+                    + "eulerYaw,eulerPitch,eulerRoll,"
                     + "pressureToeOutside,pressureMidOutside,pressureToeInside,pressureCenter,"
                     + "pressureMidInside,pressureHeel,serialNumber,dataPosition,sidePosition,receivedAt";
 
@@ -193,7 +194,7 @@ public class MeasurementStorage {
         );
     }
 
-    private String toCsv(List<OrpheInsoleValue> values) {
+    static String toCsv(List<OrpheInsoleValue> values) {
         StringBuilder builder = new StringBuilder();
         builder.append(CSV_HEADER);
         for (OrpheInsoleValue value : values) {
@@ -203,7 +204,7 @@ public class MeasurementStorage {
         return builder.toString();
     }
 
-    private void appendCsvRow(StringBuilder builder, OrpheInsoleValue value) {
+    private static void appendCsvRow(StringBuilder builder, OrpheInsoleValue value) {
         appendCell(builder, String.format(Locale.US, "%.3f", value.startTime / 1000.0));
         appendCell(builder, Double.toString(value.accX));
         appendCell(builder, Double.toString(value.accY));
@@ -215,6 +216,9 @@ public class MeasurementStorage {
         appendCell(builder, Double.toString(value.quatX));
         appendCell(builder, Double.toString(value.quatY));
         appendCell(builder, Double.toString(value.quatZ));
+        appendCell(builder, Double.toString(value.eulerYaw));
+        appendCell(builder, Double.toString(value.eulerPitch));
+        appendCell(builder, Double.toString(value.eulerRoll));
         appendCell(builder, Double.toString(value.pressureToeOutside));
         appendCell(builder, Double.toString(value.pressureMidOutside));
         appendCell(builder, Double.toString(value.pressureToeInside));
@@ -227,12 +231,12 @@ public class MeasurementStorage {
         builder.append(Long.toString(value.receivedAt));
     }
 
-    private void appendCell(StringBuilder builder, String value) {
+    private static void appendCell(StringBuilder builder, String value) {
         builder.append(escape(value));
         builder.append(',');
     }
 
-    private String escape(String value) {
+    private static String escape(String value) {
         if (value == null) {
             return "";
         }

@@ -10,11 +10,11 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class OrpheBestEffortInitializerTest {
+public class OrpheFifoInitializerTest {
     @Test
     public void acknowledgementsAdvanceStopClearStartInOrder() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortInitializer initializer = new OrpheBestEffortInitializer(recorder);
+        OrpheFifoInitializer initializer = new OrpheFifoInitializer(recorder);
 
         initializer.start(0L);
         initializer.onAcknowledged(6, 1L);
@@ -29,7 +29,7 @@ public class OrpheBestEffortInitializerTest {
     @Test
     public void missingAcknowledgementRetriesUpToTenAttempts() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortInitializer initializer = new OrpheBestEffortInitializer(recorder);
+        OrpheFifoInitializer initializer = new OrpheFifoInitializer(recorder);
         initializer.start(0L);
 
         for (int attempt = 1; attempt < 10; attempt++) {
@@ -43,7 +43,7 @@ public class OrpheBestEffortInitializerTest {
         assertFalse(initializer.isRunning());
     }
 
-    private static final class Recorder implements OrpheBestEffortInitializer.Listener {
+    private static final class Recorder implements OrpheFifoInitializer.Listener {
         final List<Integer> commands = new ArrayList<>();
         final List<Integer> failures = new ArrayList<>();
         int completed;

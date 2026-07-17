@@ -21,7 +21,7 @@ public abstract class OrpheCoreCallback implements OrpheCallback {
     }
 
     /**
-     * bestEffort受信中に値が更新された直後のコールバック。
+     * fifo受信中に値が更新された直後のコールバック。
      * 既存実装との互換性のため、既定では今回差分を配列版へ転送します。
      *
      * @param update 今回差分とSDK内で再計算・マージ済みの全値

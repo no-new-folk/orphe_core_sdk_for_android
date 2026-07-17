@@ -18,11 +18,23 @@
         <item name="android:orientation">horizontal</item>
     </style>
 
-    <style name="PressureCalibrationInput">
+    <style name="PressureCalibrationInputContainer">
         <item name="android:layout_width">0dp</item>
         <item name="android:layout_height">wrap_content</item>
         <item name="android:layout_weight">1</item>
         <item name="android:layout_marginEnd">8dp</item>
+        <item name="android:orientation">vertical</item>
+    </style>
+
+    <style name="PressureCalibrationInputLabel">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textSize">11sp</item>
+    </style>
+
+    <style name="PressureCalibrationInput">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
         <item name="android:inputType">numberDecimal|numberSigned</item>
         <item name="android:selectAllOnFocus">true</item>
         <item name="android:singleLine">true</item>

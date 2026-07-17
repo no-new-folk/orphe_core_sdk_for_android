@@ -3,7 +3,7 @@ package io.orphe.orphecoresdk;
 import androidx.annotation.NonNull;
 
 /**
- * bestEffort受信中にセンサー値が更新されたことを表します。
+ * fifo受信中にセンサー値が更新されたことを表します。
  *
  * <p>差分はNotifyを受信した時点で即時に取得できます。全体値は必要になった時だけ
  * SDK内の蓄積値からスナップショットを生成するため、グラフ表示で差分だけを使う場合に
@@ -36,7 +36,7 @@ public final class OrpheInsoleValueUpdate {
     }
 
     /**
-     * この更新時点までにbestEffortで取得できた全値をシリアル順で返します。
+     * この更新時点までにfifoで取得できた全値をシリアル順で返します。
      * 欠損値が後から回収された場合は、そのシリアル位置へ挿入されます。
      *
      * @return この更新時点の全値

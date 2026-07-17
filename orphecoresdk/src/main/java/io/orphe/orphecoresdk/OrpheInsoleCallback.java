@@ -21,7 +21,7 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
     }
 
     /**
-     * bestEffort受信中に値が更新された直後のコールバック。
+     * fifo受信中に値が更新された直後のコールバック。
      *
      * <p>{@link OrpheInsoleValueUpdate#getDeltaValues()}で今回の差分、
      * {@link OrpheInsoleValueUpdate#getAllValues()}でこの更新時点の全値を取得できます。

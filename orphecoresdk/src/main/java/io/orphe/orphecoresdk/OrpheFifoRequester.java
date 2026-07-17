@@ -10,7 +10,7 @@ import java.util.List;
 import java.util.Set;
 
 /** Python版ところてんと同じcarry-over方式で継続取得するSDK内部状態管理。 */
-final class OrpheBestEffortRequester<T> {
+final class OrpheFifoRequester<T> {
     static final int SERIAL_NUMBER_MODULUS = 65536;
     static final int MAX_REQUEST_RANGES = 30;
     static final long RESPONSE_IDLE_TIMEOUT_MILLIS = 250L;
@@ -30,7 +30,7 @@ final class OrpheBestEffortRequester<T> {
     }
 
     private final long serialIntervalMillis;
-    @NonNull private final OrpheBestEffortConfig config;
+    @NonNull private final OrpheFifoConfig config;
     @NonNull private final Listener<T> listener;
     private final LinkedHashSet<Integer> carryOverSerials = new LinkedHashSet<>();
 
@@ -38,9 +38,9 @@ final class OrpheBestEffortRequester<T> {
     private Integer lastSerialNumber;
     private ActiveRequest activeRequest;
 
-    OrpheBestEffortRequester(
+    OrpheFifoRequester(
             final long serialIntervalMillis,
-            @NonNull final OrpheBestEffortConfig config,
+            @NonNull final OrpheFifoConfig config,
             @NonNull final Listener<T> listener
     ) {
         if (serialIntervalMillis < 1L) {

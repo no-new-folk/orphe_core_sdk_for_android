@@ -2,7 +2,7 @@ package io.orphe.orphecoresdk;
 
 import androidx.annotation.NonNull;
 
-/** COREのbestEffort受信における今回差分と再計算済み全値。 */
+/** COREのfifo受信における今回差分と再計算済み全値。 */
 public final class OrpheSensorValueUpdate {
     @NonNull private final OrpheSensorValue[] deltaValues;
     @NonNull private final OrpheSensorValueAccumulator accumulator;

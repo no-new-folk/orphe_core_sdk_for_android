@@ -2,8 +2,8 @@ package io.orphe.orphecoresdk;
 
 import androidx.annotation.NonNull;
 
-/** Best Effort開始前のstop/clear/start accumulationをACK付きで直列化する。 */
-final class OrpheBestEffortInitializer {
+/** FIFO開始前のstop/clear/start accumulationをACK付きで直列化する。 */
+final class OrpheFifoInitializer {
     static final int COMMAND_CLEAR = 3;
     static final int COMMAND_START = 4;
     static final int COMMAND_STOP = 6;
@@ -24,7 +24,7 @@ final class OrpheBestEffortInitializer {
     private int attempts;
     private long deadlineMillis;
 
-    OrpheBestEffortInitializer(@NonNull final Listener listener) {
+    OrpheFifoInitializer(@NonNull final Listener listener) {
         this.listener = listener;
     }
 

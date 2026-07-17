@@ -16,14 +16,14 @@ public enum OrpheInsoleReceiveMode {
     request,
 
     /** SDKが継続取得と欠損回収を自動的に行います。 */
-    bestEffort;
+    fifo;
 
     OrpheSensorReceiveMode toSensorReceiveMode() {
         switch (this) {
             case request:
                 return OrpheSensorReceiveMode.request;
-            case bestEffort:
-                return OrpheSensorReceiveMode.bestEffort;
+            case fifo:
+                return OrpheSensorReceiveMode.fifo;
             case realtime:
             default:
                 return OrpheSensorReceiveMode.realtime;

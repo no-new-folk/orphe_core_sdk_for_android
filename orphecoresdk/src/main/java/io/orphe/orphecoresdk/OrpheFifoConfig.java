@@ -1,18 +1,18 @@
 package io.orphe.orphecoresdk;
 
 /**
- * bestEffort受信方式のリクエスト設定。
+ * fifo受信方式のリクエスト設定。
  */
-public class OrpheBestEffortConfig {
-    public static final OrpheBestEffortConfig DEFAULT =
-            new OrpheBestEffortConfig(200, 200L, 5000L, 100, 1500);
+public class OrpheFifoConfig {
+    public static final OrpheFifoConfig DEFAULT =
+            new OrpheFifoConfig(200, 200L, 5000L, 100, 1500);
 
     /**
-     * @deprecated Best Effortは固定回数で打ち切らず、未受信値を次回へ持ち越します。
-     * {@link #OrpheBestEffortConfig(int, long, long, int, int)}を使用してください。
+     * @deprecated FIFOは固定回数で打ち切らず、未受信値を次回へ持ち越します。
+     * {@link #OrpheFifoConfig(int, long, long, int, int)}を使用してください。
      */
     @Deprecated
-    public OrpheBestEffortConfig(
+    public OrpheFifoConfig(
             final int requestLength,
             final long requestIntervalMillis,
             final long requestTimeoutMillis,
@@ -28,7 +28,7 @@ public class OrpheBestEffortConfig {
         );
     }
 
-    public OrpheBestEffortConfig(
+    public OrpheFifoConfig(
             final int requestLength,
             final long requestIntervalMillis,
             final long requestTimeoutMillis,
@@ -45,7 +45,7 @@ public class OrpheBestEffortConfig {
         );
     }
 
-    private OrpheBestEffortConfig(
+    private OrpheFifoConfig(
             final int requestLength,
             final long requestIntervalMillis,
             final long requestTimeoutMillis,

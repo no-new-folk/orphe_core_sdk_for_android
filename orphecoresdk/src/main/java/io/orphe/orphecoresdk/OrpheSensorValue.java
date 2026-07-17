@@ -37,9 +37,9 @@ public class OrpheSensorValue {
     @NonNull final double quatW,
 
     /// オイラー角
-    @NonNull final double eulerX,
-    @NonNull final double eulerY,
-    @NonNull final double eulerZ,
+    @NonNull final double eulerYaw,
+    @NonNull final double eulerPitch,
+    @NonNull final double eulerRoll,
 
     /// 加速度
     @NonNull final double accX,
@@ -55,11 +55,6 @@ public class OrpheSensorValue {
     @NonNull final double accOfGravityX,
     @NonNull final double accOfGravityY,
     @NonNull final double accOfGravityZ,
-
-    /// 正規化されたオイラー角
-    @NonNull final double normalizedEulerX,
-    @NonNull final double normalizedEulerY,
-    @NonNull final double normalizedEulerZ,
 
     /// 正規化された加速度
     @NonNull final double normalizedAccX,
@@ -109,9 +104,9 @@ public class OrpheSensorValue {
       this.quatY = quatY;
       this.quatZ = quatZ;
       this.quatW = quatW;
-      this.eulerX = eulerX;
-      this.eulerY = eulerY;
-      this.eulerZ = eulerZ;
+      this.eulerYaw = eulerYaw;
+      this.eulerPitch = eulerPitch;
+      this.eulerRoll = eulerRoll;
       this.accX = accX;
       this.accY = accY;
       this.accZ = accZ;
@@ -124,9 +119,6 @@ public class OrpheSensorValue {
       this.normalizedAccX = normalizedAccX;
       this.normalizedAccY = normalizedAccY;
       this.normalizedAccZ = normalizedAccZ;
-      this.normalizedEulerX = normalizedEulerX;
-      this.normalizedEulerY = normalizedEulerY;
-      this.normalizedEulerZ = normalizedEulerZ;
       this.normalizedGyroX = normalizedGyroX;
       this.normalizedGyroY = normalizedGyroY;
       this.normalizedGyroZ = normalizedGyroZ;
@@ -164,12 +156,12 @@ public class OrpheSensorValue {
         builder.append(",");
         builder.append(String.format("%.2f", gyroZ));
         builder.append(")\n");
-        builder.append("euler:(");
-        builder.append(String.format("%.2f", eulerX));
+        builder.append("euler(yaw,pitch,roll):(");
+        builder.append(String.format("%.2f", eulerYaw));
         builder.append(",");
-        builder.append(String.format("%.2f", eulerY));
+        builder.append(String.format("%.2f", eulerPitch));
         builder.append(",");
-        builder.append(String.format("%.2f", eulerZ));
+        builder.append(String.format("%.2f", eulerRoll));
         builder.append(")\n");
         builder.append("quat:(");
         builder.append(String.format("%.2f", quatW));
@@ -236,9 +228,8 @@ public class OrpheSensorValue {
                     final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
-                    final double eulerX = toEulerX(quatW, quatX, quatY, quatZ);
-                    final double eulerY = toEulerY(quatW, quatX, quatY, quatZ);
-                    final double eulerZ = toEulerZ(quatW, quatX, quatY, quatZ);
+                    final OrpheEulerAngles euler =
+                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
                     final double gravityX = toGravityX(quatW, quatX, quatY, quatZ);
                     final double gravityY = toGravityY(quatW, quatX, quatY, quatZ);
                     final double gravityZ = toGravityZ(quatW, quatX, quatY, quatZ);
@@ -253,9 +244,9 @@ public class OrpheSensorValue {
                                     quatY,
                                     quatZ,
                                     quatW,
-                                    eulerX,
-                                    eulerY,
-                                    eulerZ,
+                                    euler.yaw,
+                                    euler.pitch,
+                                    euler.roll,
                                     accX,
                                     accY,
                                     accZ,
@@ -265,9 +256,6 @@ public class OrpheSensorValue {
                                     gravityX,
                                     gravityY,
                                     gravityZ,
-                                    eulerX / 180.0,
-                                    eulerY / 180.0,
-                                    eulerZ / 180.0,
                                     accX / accRange.value,
                                     accY / accRange.value,
                                     accZ / accRange.value,
@@ -310,7 +298,7 @@ public class OrpheSensorValue {
                             ? 0
                             : 5 * 1000;
                     final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
-                    // request / bestEffortの受信処理で、復号後に時系列姿勢を計算する。
+                    // request / fifoの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
                     final double quatX = 0;
                     final double quatY = 0;
@@ -321,9 +309,8 @@ public class OrpheSensorValue {
                     final double accX = parseInt(bytes, index + 6) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
-                    final double eulerX = toEulerX(quatW, quatX, quatY, quatZ);
-                    final double eulerY = toEulerY(quatW, quatX, quatY, quatZ);
-                    final double eulerZ = toEulerZ(quatW, quatX, quatY, quatZ);
+                    final OrpheEulerAngles euler =
+                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
                     final double gravityX = toGravityX(quatW, quatX, quatY, quatZ);
                     final double gravityY = toGravityY(quatW, quatX, quatY, quatZ);
                     final double gravityZ = toGravityZ(quatW, quatX, quatY, quatZ);
@@ -338,9 +325,9 @@ public class OrpheSensorValue {
                                     quatY,
                                     quatZ,
                                     quatW,
-                                    eulerX,
-                                    eulerY,
-                                    eulerZ,
+                                    euler.yaw,
+                                    euler.pitch,
+                                    euler.roll,
                                     accX,
                                     accY,
                                     accZ,
@@ -350,9 +337,6 @@ public class OrpheSensorValue {
                                     gravityX,
                                     gravityY,
                                     gravityZ,
-                                    eulerX / 180.0,
-                                    eulerY / 180.0,
-                                    eulerZ / 180.0,
                                     accX / accRange.value,
                                     accY / accRange.value,
                                     accZ / accRange.value,
@@ -383,11 +367,7 @@ public class OrpheSensorValue {
     /** 既存の生値とメタデータを保ち、算出済み姿勢と派生値を設定します。 */
     @NonNull
     OrpheSensorValue withQuaternion(@NonNull final OrpheQuaternion quaternion) {
-        final double eulerX = toEulerX(
-                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
-        final double eulerY = toEulerY(
-                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
-        final double eulerZ = toEulerZ(
+        final OrpheEulerAngles euler = OrpheEulerAngles.fromQuaternion(
                 quaternion.w, quaternion.x, quaternion.y, quaternion.z);
         final double gravityX = toGravityX(
                 quaternion.w, quaternion.x, quaternion.y, quaternion.z);
@@ -405,9 +385,9 @@ public class OrpheSensorValue {
                 quaternion.y,
                 quaternion.z,
                 quaternion.w,
-                eulerX,
-                eulerY,
-                eulerZ,
+                euler.yaw,
+                euler.pitch,
+                euler.roll,
                 accX,
                 accY,
                 accZ,
@@ -417,9 +397,6 @@ public class OrpheSensorValue {
                 gravityX,
                 gravityY,
                 gravityZ,
-                eulerX / 180.0,
-                eulerY / 180.0,
-                eulerZ / 180.0,
                 normalizedAccX,
                 normalizedAccY,
                 normalizedAccZ,
@@ -457,12 +434,12 @@ public class OrpheSensorValue {
     @NonNull public final int dataPosition;
 
     /**
-     * 開始日時のタイムスタンプ（ナノ秒）
+     * 開始日時のタイムスタンプ（epochミリ秒）
      */
     @NonNull public final long startTime;
 
     /**
-     * 終了日時のタイムスタンプ（ナノ秒）
+     * 終了日時のタイムスタンプ（epochミリ秒）
      */
     public final long endTime;
 
@@ -484,17 +461,17 @@ public class OrpheSensorValue {
     @NonNull public final double quatW;
 
     /**
-     * オイラー角X
+     * ヨー角（ラジアン）
      */
-    @NonNull public final double eulerX;
+    @NonNull public final double eulerYaw;
     /**
-     * オイラー角Y
+     * ピッチ角（ラジアン）
      */
-    @NonNull public final double eulerY;
+    @NonNull public final double eulerPitch;
     /**
-     * オイラー角Z
+     * ロール角（ラジアン）
      */
-    @NonNull public final double eulerZ;
+    @NonNull public final double eulerRoll;
 
     /**
      * 加速度X
@@ -535,20 +512,6 @@ public class OrpheSensorValue {
      * 重力加速度Z
      */
     @NonNull public final double accOfGravityZ;
-
-
-    /**
-     * 正規化されたオイラー角X
-     */
-    @NonNull public final double normalizedEulerX;
-    /**
-     * 正規化されたオイラー角Y
-     */
-    @NonNull public final double normalizedEulerY;
-    /**
-     * 正規化されたオイラー角Z
-     */
-    @NonNull public final double normalizedEulerZ;
 
     /**
      * 正規化された加速度X
@@ -644,96 +607,6 @@ public class OrpheSensorValue {
             double quatW, double quatX, double quatY, double quatZ) {
         return  quatW * quatW - quatX * quatX - quatY * quatY + quatZ * quatZ;
     }
-
-    private static double toEulerX(
-            double quatW, double quatX, double quatY, double quatZ) {
-        final double w = quatY;
-        final double x = quatZ;
-        final double y = quatW;
-        final double z = quatX;
-
-        double phi = 0.0;
-        double theta = 0.0;
-        double psi = 0.0;
-        theta = Math.asin(-2.0 * (x * z - w * y)) / (2.0 * Math.PI)* 360.0;
-        phi = Math.atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z) /
-                (2.0 * Math.PI)*
-                360.0;
-        psi = Math.atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z) /
-                (2.0 * Math.PI) *
-                360.0;
-
-        if (phi > 0) {
-            phi = 180.0 - phi;
-        } else {
-            phi = -180.0 - phi;
-        }
-        theta = -theta;
-        psi = -psi;
-
-        return theta;
-    }
-
-
-    private static double toEulerY(
-            double quatW, double quatX, double quatY, double quatZ) {
-        final double w = quatY;
-        final double x = quatZ;
-        final double y = quatW;
-        final double z = quatX;
-
-        double phi = 0.0;
-        double theta = 0.0;
-        double psi = 0.0;
-        theta = Math.asin(-2.0 * (x * z - w * y)) / (2.0 * Math.PI)* 360.0;
-        phi = Math.atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z) /
-                (2.0 * Math.PI)*
-                360.0;
-        psi = Math.atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z) /
-                (2.0 * Math.PI) *
-                360.0;
-
-        if (phi > 0) {
-            phi = 180.0 - phi;
-        } else {
-            phi = -180.0 - phi;
-        }
-        theta = -theta;
-        psi = -psi;
-
-        return phi;
-    }
-
-
-    private static double toEulerZ(
-            double quatW, double quatX, double quatY, double quatZ) {
-        final double w = quatY;
-        final double x = quatZ;
-        final double y = quatW;
-        final double z = quatX;
-
-        double phi = 0.0;
-        double theta = 0.0;
-        double psi = 0.0;
-        theta = Math.asin(-2.0 * (x * z - w * y)) / (2.0 * Math.PI)* 360.0;
-        phi = Math.atan2(2.0 * (y * z + w * x), w * w - x * x - y * y + z * z) /
-                (2.0 * Math.PI)*
-                360.0;
-        psi = Math.atan2(2.0 * (x * y + w * z), w * w + x * x - y * y - z * z) /
-                (2.0 * Math.PI) *
-                360.0;
-
-        if (phi > 0) {
-            phi = 180.0 - phi;
-        } else {
-            phi = -180.0 - phi;
-        }
-        theta = -theta;
-        psi = -psi;
-
-        return psi;
-    }
-
 
     private static int parseInt(@NonNull byte[] bytes,  int index) {
         return OrpheByteParser.getInt16BigEndian(bytes, index);

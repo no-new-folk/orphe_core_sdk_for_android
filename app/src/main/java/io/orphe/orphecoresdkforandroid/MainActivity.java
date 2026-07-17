@@ -83,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
     private Button mClearMeasurementButton;
     private LinearLayout mMeasurementHistoryContainer;
 
-    private OrpheSensorReceiveMode mReceiveMode = OrpheSensorReceiveMode.bestEffort;
+    private OrpheSensorReceiveMode mReceiveMode = OrpheSensorReceiveMode.fifo;
     private OrpheInsoleSamplingRate mSamplingRate = OrpheInsoleSamplingRate.hz200;
     private boolean mUpdatingSensorSettingSpinners = false;
 
@@ -702,7 +702,7 @@ public class MainActivity extends AppCompatActivity {
         ArrayAdapter<String> receiveModeAdapter = new ArrayAdapter<>(
                 this,
                 android.R.layout.simple_spinner_item,
-                new String[]{"Realtime", "Best Effort"}
+                new String[]{"Realtime", "FIFO"}
         );
         receiveModeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         mReceiveModeSpinner.setAdapter(receiveModeAdapter);
@@ -714,10 +714,10 @@ public class MainActivity extends AppCompatActivity {
                 }
                 final OrpheSensorReceiveMode selectedMode = position == 0
                         ? OrpheSensorReceiveMode.realtime
-                        : OrpheSensorReceiveMode.bestEffort;
+                        : OrpheSensorReceiveMode.fifo;
                 if (mReceiveMode != selectedMode) {
                     mReceiveMode = selectedMode;
-                    if (selectedMode == OrpheSensorReceiveMode.bestEffort) {
+                    if (selectedMode == OrpheSensorReceiveMode.fifo) {
                         mSamplingRate = OrpheInsoleSamplingRate.hz200;
                     }
                     applySensorConfigToInsoles();
@@ -813,8 +813,8 @@ public class MainActivity extends AppCompatActivity {
 
     private String receiveModeLabel() {
         switch (mReceiveMode) {
-            case bestEffort:
-                return "Best Effort";
+            case fifo:
+                return "FIFO";
             case realtime:
             default:
                 return "Realtime";

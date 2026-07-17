@@ -11,5 +11,5 @@ public enum OrpheSensorReceiveMode {
     request,
 
     /** SDKが継続取得と欠損回収を自動的に行います。 */
-    bestEffort
+    fifo
 }

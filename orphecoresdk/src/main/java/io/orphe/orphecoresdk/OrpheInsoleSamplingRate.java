@@ -5,8 +5,10 @@ package io.orphe.orphecoresdk;
  */
 public enum OrpheInsoleSamplingRate {
     /**
-     * 100Hz出力。realtimeではクオータニオン付き、request / bestEffortでは
-     * 200Hz蓄積データを間引いたクオータニオンなしの値を返します。
+     * 100Hz出力。realtimeではデバイスが算出したクオータニオン付き、
+     * request / fifoでは200Hz蓄積データからSDK内で算出した
+     * クオータニオン付きの値を返します。SDK内の姿勢計算は未検証のため、
+     * request / fifoのクオータニオンの動作は保証しません。
      */
     hz100(4, 56, 2),
 

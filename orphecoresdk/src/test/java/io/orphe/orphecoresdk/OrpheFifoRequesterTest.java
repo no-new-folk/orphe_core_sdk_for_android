@@ -12,15 +12,15 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertTrue;
 
-public class OrpheBestEffortRequesterTest {
+public class OrpheFifoRequesterTest {
     @Test
     public void defaultConfigMatchesTokorotenSafetyValues() {
-        OrpheBestEffortConfig config = OrpheBestEffortConfig.DEFAULT;
+        OrpheFifoConfig config = OrpheFifoConfig.DEFAULT;
 
         assertEquals(200, config.requestLength);
         assertEquals(200L, config.requestIntervalMillis);
         assertEquals(5000L, config.requestTimeoutMillis);
-        assertEquals(250L, OrpheBestEffortRequester.RESPONSE_IDLE_TIMEOUT_MILLIS);
+        assertEquals(250L, OrpheFifoRequester.RESPONSE_IDLE_TIMEOUT_MILLIS);
         assertEquals(100, config.maxCarryOverSerials);
         assertEquals(1500, config.ringBufferCapacity);
     }
@@ -28,9 +28,9 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void partialResponseUsesIdleTimeoutAndCarriesUnresolvedSerial() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = new OrpheBestEffortRequester<>(
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
                 20L,
-                new OrpheBestEffortConfig(10, 100L, 5000L, 10, 1500),
+                new OrpheFifoConfig(10, 100L, 5000L, 10, 1500),
                 recorder
         );
         requester.start();
@@ -53,9 +53,9 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void idleTimeoutDoesNotStartUntilFirstExpectedResponse() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = new OrpheBestEffortRequester<>(
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
                 20L,
-                new OrpheBestEffortConfig(10, 100L, 5000L, 10, 1500),
+                new OrpheFifoConfig(10, 100L, 5000L, 10, 1500),
                 recorder
         );
         requester.start();
@@ -77,7 +77,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void currentStateBuildsInitialRangeFromAccumulatedCount() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
 
         requester.tick(1_000L);
@@ -91,7 +91,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void timeoutCarriesHoleIntoNextRequestWithoutMarkingMissing() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
         requester.onCurrentState(3, 3, 0L);
         requester.onValue(1, 1, 1L);
@@ -108,7 +108,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void carryOverCanBeRecoveredAfterMultipleTimeouts() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
         requester.onCurrentState(2, 2, 0L);
         requester.onValue(1, 1, 1L);
@@ -130,7 +130,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void firmwareNoDataIsReportedAndNotCarriedOver() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
         requester.onCurrentState(3, 3, 0L);
         requester.onValue(1, 1, 1L);
@@ -146,7 +146,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void noDataInNewRangeForcesLatestRangeResync() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
         requester.onCurrentState(3, 3, 0L);
         requester.onNotFound(1, 3, 1L);
@@ -160,8 +160,8 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void carryOverOverflowDropsPendingAndResyncs() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortConfig config = new OrpheBestEffortConfig(10, 100L, 200L, 2, 1500);
-        OrpheBestEffortRequester<Integer> requester = new OrpheBestEffortRequester<>(
+        OrpheFifoConfig config = new OrpheFifoConfig(10, 100L, 200L, 2, 1500);
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
                 20L,
                 config,
                 recorder
@@ -179,8 +179,8 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void ringBufferOverflowSkipsOldestSerials() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortConfig config = new OrpheBestEffortConfig(200, 100L, 200L, 100, 1500);
-        OrpheBestEffortRequester<Integer> requester = new OrpheBestEffortRequester<>(
+        OrpheFifoConfig config = new OrpheFifoConfig(200, 100L, 200L, 100, 1500);
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
                 40L,
                 config,
                 recorder
@@ -198,8 +198,8 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void commandUsesAtMostThirtyRangesIncludingNewRange() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortConfig config = new OrpheBestEffortConfig(200, 100L, 200L, 100, 1500);
-        OrpheBestEffortRequester<Integer> requester = new OrpheBestEffortRequester<>(
+        OrpheFifoConfig config = new OrpheFifoConfig(200, 100L, 200L, 100, 1500);
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
                 20L,
                 config,
                 recorder
@@ -221,7 +221,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void serialNumberWrapIsHandled() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
 
         requester.onCurrentState(1, 4, 0L);
@@ -232,7 +232,7 @@ public class OrpheBestEffortRequesterTest {
     @Test
     public void stopDropsOldStateAndReconnectStartsFresh() {
         Recorder recorder = new Recorder();
-        OrpheBestEffortRequester<Integer> requester = requester(recorder);
+        OrpheFifoRequester<Integer> requester = requester(recorder);
         requester.start();
         requester.onCurrentState(10, 10, 0L);
         assertTrue(requester.hasActiveRequest());
@@ -247,16 +247,16 @@ public class OrpheBestEffortRequesterTest {
         assertEquals(Arrays.asList("200:1"), recorder.requests.get(1));
     }
 
-    private OrpheBestEffortRequester<Integer> requester(Recorder recorder) {
-        return new OrpheBestEffortRequester<>(
+    private OrpheFifoRequester<Integer> requester(Recorder recorder) {
+        return new OrpheFifoRequester<>(
                 20L,
-                new OrpheBestEffortConfig(10, 100L, 200L, 10, 1500),
+                new OrpheFifoConfig(10, 100L, 200L, 10, 1500),
                 recorder
         );
     }
 
     private static final class Recorder
-            implements OrpheBestEffortRequester.Listener<Integer> {
+            implements OrpheFifoRequester.Listener<Integer> {
         int currentStateRequests;
         final List<List<String>> requests = new ArrayList<>();
         final List<Integer> requestedSerialCounts = new ArrayList<>();

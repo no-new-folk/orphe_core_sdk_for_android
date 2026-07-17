@@ -18,7 +18,7 @@ public class OrpheInsoleSensorConfig {
             @NonNull final OrpheSensorReceiveMode receiveMode,
             @NonNull final OrpheInsoleSamplingRate samplingRate
     ) {
-        this(receiveMode, samplingRate, OrpheBestEffortConfig.DEFAULT, 500L);
+        this(receiveMode, samplingRate, OrpheFifoConfig.DEFAULT, 500L);
     }
 
     /** @deprecated {@link OrpheSensorReceiveMode}を使用してください。 */
@@ -33,16 +33,16 @@ public class OrpheInsoleSensorConfig {
     public OrpheInsoleSensorConfig(
             @NonNull final OrpheSensorReceiveMode receiveMode,
             @NonNull final OrpheInsoleSamplingRate samplingRate,
-            @NonNull final OrpheBestEffortConfig bestEffortConfig,
+            @NonNull final OrpheFifoConfig fifoConfig,
             final long modeChangeDelayMillis
     ) {
         this.receiveMode = receiveMode;
         this.samplingRate = samplingRate;
-        this.bestEffortConfig = bestEffortConfig;
+        this.fifoConfig = fifoConfig;
         this.modeChangeDelayMillis = Math.max(0, modeChangeDelayMillis);
     }
 
-    /** @deprecated {@link OrpheBestEffortConfig}を使用してください。 */
+    /** @deprecated {@link OrpheFifoConfig}を使用してください。 */
     @Deprecated
     public OrpheInsoleSensorConfig(
             @NonNull final OrpheInsoleReceiveMode receiveMode,
@@ -54,7 +54,7 @@ public class OrpheInsoleSensorConfig {
         this(
                 receiveMode.toSensorReceiveMode(),
                 samplingRate,
-                new OrpheBestEffortConfig(
+                new OrpheFifoConfig(
                         requestLength,
                         requestIntervalMillis,
                         Math.max(1500L, requestIntervalMillis),
@@ -77,10 +77,10 @@ public class OrpheInsoleSensorConfig {
     public final OrpheInsoleSamplingRate samplingRate;
 
     /**
-     * bestEffort方式の要求設定。
+     * fifo方式の要求設定。
      */
     @NonNull
-    public final OrpheBestEffortConfig bestEffortConfig;
+    public final OrpheFifoConfig fifoConfig;
 
     /**
      * Notify開始後にセンサー取得モードを書き込むまでの待ち時間。
