@@ -100,13 +100,10 @@ public class OrpheQuaternionTimelineTest {
         );
         assertEquals(1.0, quaternionNorm, 1.0E-12);
         assertEquals(1.0, gravityNorm, 1.0E-12);
-        assertTrue(Double.isFinite(value.eulerYaw));
-        assertTrue(Double.isFinite(value.eulerPitch));
-        assertTrue(Double.isFinite(value.eulerRoll));
     }
 
     @Test
-    public void coreAndInsoleUseSameEulerConversion() {
+    public void coreAndInsoleUseSameQuaternionCalculation() {
         OrpheSensorValue core =
                 OrpheQuaternionTimelines.forCore().add(corePacket(20)).receivedValues[0];
         OrpheInsoleValue insole =
@@ -116,22 +113,6 @@ public class OrpheQuaternionTimelineTest {
         assertEquals(core.quatX, insole.quatX, 1.0E-12);
         assertEquals(core.quatY, insole.quatY, 1.0E-12);
         assertEquals(core.quatZ, insole.quatZ, 1.0E-12);
-        assertEquals(core.eulerYaw, insole.eulerYaw, 1.0E-12);
-        assertEquals(core.eulerPitch, insole.eulerPitch, 1.0E-12);
-        assertEquals(core.eulerRoll, insole.eulerRoll, 1.0E-12);
-    }
-
-    @Test
-    public void eulerPitchIsClampedLikeQuaternionJs() {
-        final double halfSqrtTwo = Math.sqrt(0.5);
-
-        OrpheEulerAngles positive =
-                OrpheEulerAngles.fromQuaternion(halfSqrtTwo, 0.0, halfSqrtTwo, 0.0);
-        OrpheEulerAngles negative =
-                OrpheEulerAngles.fromQuaternion(halfSqrtTwo, 0.0, -halfSqrtTwo, 0.0);
-
-        assertEquals(Math.PI / 2.0, positive.pitch, 0.0);
-        assertEquals(-Math.PI / 2.0, negative.pitch, 0.0);
     }
 
     @Test
@@ -269,7 +250,6 @@ public class OrpheQuaternionTimelineTest {
                     1_000L + i * 5L,
                     1_000L + i * 5L,
                     0.0, 0.0, 0.0, 0.0, // quaternion
-                    0.0, 0.0, 0.0,      // Euler
                     0.0, 0.0, 1.0,      // acceleration
                     30.0, 20.0, 10.0,   // gyroscope
                     0.0, 0.0, 0.0,      // gravity
@@ -300,9 +280,6 @@ public class OrpheQuaternionTimelineTest {
             assertEquals(expected[i].quatX, actual[i].quatX, 1.0E-12);
             assertEquals(expected[i].quatY, actual[i].quatY, 1.0E-12);
             assertEquals(expected[i].quatZ, actual[i].quatZ, 1.0E-12);
-            assertEquals(expected[i].eulerYaw, actual[i].eulerYaw, 1.0E-12);
-            assertEquals(expected[i].eulerPitch, actual[i].eulerPitch, 1.0E-12);
-            assertEquals(expected[i].eulerRoll, actual[i].eulerRoll, 1.0E-12);
         }
     }
 

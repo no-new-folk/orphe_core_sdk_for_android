@@ -36,11 +36,6 @@ public class OrpheSensorValue {
     @NonNull final double quatZ,
     @NonNull final double quatW,
 
-    /// オイラー角
-    @NonNull final double eulerYaw,
-    @NonNull final double eulerPitch,
-    @NonNull final double eulerRoll,
-
     /// 加速度
     @NonNull final double accX,
     @NonNull final double accY,
@@ -104,9 +99,6 @@ public class OrpheSensorValue {
       this.quatY = quatY;
       this.quatZ = quatZ;
       this.quatW = quatW;
-      this.eulerYaw = eulerYaw;
-      this.eulerPitch = eulerPitch;
-      this.eulerRoll = eulerRoll;
       this.accX = accX;
       this.accY = accY;
       this.accZ = accZ;
@@ -156,13 +148,14 @@ public class OrpheSensorValue {
         builder.append(",");
         builder.append(String.format("%.2f", gyroZ));
         builder.append(")\n");
-        builder.append("euler(yaw,pitch,roll):(");
-        builder.append(String.format("%.2f", eulerYaw));
-        builder.append(",");
-        builder.append(String.format("%.2f", eulerPitch));
-        builder.append(",");
-        builder.append(String.format("%.2f", eulerRoll));
-        builder.append(")\n");
+//        Euler角の出力は一時停止しています。
+//        builder.append("euler(yaw,pitch,roll):(");
+//        builder.append(String.format("%.2f", eulerYaw));
+//        builder.append(",");
+//        builder.append(String.format("%.2f", eulerPitch));
+//        builder.append(",");
+//        builder.append(String.format("%.2f", eulerRoll));
+//        builder.append(")\n");
         builder.append("quat:(");
         builder.append(String.format("%.2f", quatW));
         builder.append(",");
@@ -228,8 +221,9 @@ public class OrpheSensorValue {
                     final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
-                    final OrpheEulerAngles euler =
-                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
+//                    Euler角の計算は一時停止しています。
+//                    final OrpheEulerAngles euler =
+//                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
                     final double gravityX = toGravityX(quatW, quatX, quatY, quatZ);
                     final double gravityY = toGravityY(quatW, quatX, quatY, quatZ);
                     final double gravityZ = toGravityZ(quatW, quatX, quatY, quatZ);
@@ -244,9 +238,6 @@ public class OrpheSensorValue {
                                     quatY,
                                     quatZ,
                                     quatW,
-                                    euler.yaw,
-                                    euler.pitch,
-                                    euler.roll,
                                     accX,
                                     accY,
                                     accZ,
@@ -309,8 +300,9 @@ public class OrpheSensorValue {
                     final double accX = parseInt(bytes, index + 6) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
-                    final OrpheEulerAngles euler =
-                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
+//                    Euler角の計算は一時停止しています。
+//                    final OrpheEulerAngles euler =
+//                            OrpheEulerAngles.fromQuaternion(quatW, quatX, quatY, quatZ);
                     final double gravityX = toGravityX(quatW, quatX, quatY, quatZ);
                     final double gravityY = toGravityY(quatW, quatX, quatY, quatZ);
                     final double gravityZ = toGravityZ(quatW, quatX, quatY, quatZ);
@@ -325,9 +317,6 @@ public class OrpheSensorValue {
                                     quatY,
                                     quatZ,
                                     quatW,
-                                    euler.yaw,
-                                    euler.pitch,
-                                    euler.roll,
                                     accX,
                                     accY,
                                     accZ,
@@ -367,8 +356,9 @@ public class OrpheSensorValue {
     /** 既存の生値とメタデータを保ち、算出済み姿勢と派生値を設定します。 */
     @NonNull
     OrpheSensorValue withQuaternion(@NonNull final OrpheQuaternion quaternion) {
-        final OrpheEulerAngles euler = OrpheEulerAngles.fromQuaternion(
-                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
+//        Euler角の計算は一時停止しています。
+//        final OrpheEulerAngles euler = OrpheEulerAngles.fromQuaternion(
+//                quaternion.w, quaternion.x, quaternion.y, quaternion.z);
         final double gravityX = toGravityX(
                 quaternion.w, quaternion.x, quaternion.y, quaternion.z);
         final double gravityY = toGravityY(
@@ -385,9 +375,6 @@ public class OrpheSensorValue {
                 quaternion.y,
                 quaternion.z,
                 quaternion.w,
-                euler.yaw,
-                euler.pitch,
-                euler.roll,
                 accX,
                 accY,
                 accZ,
@@ -459,19 +446,6 @@ public class OrpheSensorValue {
      * クオータニオンW
      */
     @NonNull public final double quatW;
-
-    /**
-     * ヨー角（ラジアン）
-     */
-    @NonNull public final double eulerYaw;
-    /**
-     * ピッチ角（ラジアン）
-     */
-    @NonNull public final double eulerPitch;
-    /**
-     * ロール角（ラジアン）
-     */
-    @NonNull public final double eulerRoll;
 
     /**
      * 加速度X

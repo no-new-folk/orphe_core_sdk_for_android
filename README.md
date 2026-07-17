@@ -71,6 +71,8 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 データが存在する側だけ保存ボタンが有効になります。履歴そのものを削除する場合は`Delete`を押します。
 
+CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hzで計測した場合だけ出力されます。`Request` / `FIFO`、および`Realtime`の200Hzでは、これら4列はヘッダーを含めて出力されません。Euler角は全モードでCSVへ出力されません。
+
 ### 5. 結果をシェアする
 
 1. `Measurement History`にある対象結果の`Share`を押します。詳細画面の`Share CSV`からも同じ操作ができます。
@@ -283,10 +285,10 @@ ORPHE COREに接続するためのJava SDKを提供します。
         
         - 新しい手動リクエストはデバイス上の古いリクエストを置き換えます。常時取得には、要求を直列化する`fifo`を使用してください。
         
-    - リクエストされたセンサー値は200Hz形式の0x36としてNotifyで送信され、SDKがクオータニオンとオイラー角を計算してから`OrpheInsoleCallback`の`gotInsoleValues`に渡します。FIFOでは欠損箇所以降も待機させず、受信できた値から即時に通知し、欠損回収後にSDK内の後続値を再計算します。
+    - リクエストされたセンサー値は200Hz形式の0x36としてNotifyで送信され、SDKがクオータニオンを計算してから`OrpheInsoleCallback`の`gotInsoleValues`に渡します。FIFOでは欠損箇所以降も待機させず、受信できた値から即時に通知し、欠損回収後にSDK内の後続値を再計算します。
         - `hz200`では、6点の圧力センサー値を含むセンサー値を1シリアル番号につき4時点分取得します。`hz100`ではSDKがその4時点を2時点へ間引きます。どちらもシリアル番号1増えるごとのインターバルは理論上20msです。
-        - オイラー角はラジアンで`OrpheInsoleValue.eulerYaw` / `eulerPitch` / `eulerRoll`から取得できます。変換式と軸はORPHE-INSOLE.jsの`Quaternion.toEuler()`と同一です。
-        - Madgwick 6軸フィルタは磁気センサーを使わないため、roll/pitchは重力で補正されますがyawには時間経過によるドリフトがあります。
+        - Euler角の計算と公開フィールドは一時的に無効化されています。
+        - Madgwick 6軸フィルタは磁気センサーを使わないため、算出されるクオータニオンのyaw方向には時間経過によるドリフトがあります。
         - `startTime`、`endTime`、`receivedAt`はepochミリ秒です。秒へ変換する場合は`1000.0`で割ります。
 
 - 作成した`OrpheInsole`オブジェクトの`disconnect`を呼び出すことで切断します。
@@ -460,8 +462,8 @@ ORPHE COREに接続するためのJava SDKを提供します。
         
         - 新しい手動リクエストはデバイス上の古いリクエストを置き換えます。常時取得には、要求を直列化する`fifo`を使用してください。
         
-    - リクエストされたセンサー値はNotifyで送信され、SDKがクオータニオン、Euler角、重力成分を計算してから`OrpheCoreCallback`の`gotSensorValues`に渡されます。
-        - オイラー角はラジアンで`OrpheSensorValue.eulerYaw` / `eulerPitch` / `eulerRoll`から取得でき、変換式と軸はORPHE-INSOLE.jsの`Quaternion.toEuler()`と同一です。
+    - リクエストされたセンサー値はNotifyで送信され、SDKがクオータニオンと重力成分を計算してから`OrpheCoreCallback`の`gotSensorValues`に渡されます。
+        - Euler角の計算と公開フィールドは一時的に無効化されています。
         - 200Hzでは、加速度とジャイロを含むIMUセンサー値を1シリアル番号につき8時点分取得します。シリアル番号1増えるごとのインターバルは理論上40msです。現行実装ではRequest / FIFOで取得した8時点の`startTime` / `endTime`は5ms間隔にならないため、時点間隔の算出には使用しないでください。
         - `startTime`、`endTime`、`receivedAt`はepochミリ秒です。秒へ変換する場合は`1000.0`で割ります。
 

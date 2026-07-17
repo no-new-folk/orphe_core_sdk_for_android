@@ -23,17 +23,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import io.orphe.orphecoresdk.OrpheInsoleSamplingRate;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
+import io.orphe.orphecoresdk.OrpheSensorReceiveMode;
 
 public class MeasurementStorage {
     private static final String MEASUREMENTS_DIR = "measurements";
     private static final String INDEX_FILE = "index.json";
     private static final String LEFT_CSV = "sensor-left.csv";
     private static final String RIGHT_CSV = "sensor-right.csv";
-    private static final String CSV_HEADER =
-            "timestamp,accX,accY,accZ,gyroX,gyroY,gyroZ,quatW,quatX,quatY,quatZ,"
-                    + "eulerYaw,eulerPitch,eulerRoll,"
-                    + "pressureToeOutside,pressureMidOutside,pressureToeInside,pressureCenter,"
+    private static final String CSV_HEADER_PREFIX =
+            "timestamp,accX,accY,accZ,gyroX,gyroY,gyroZ";
+    private static final String CSV_QUATERNION_HEADER =
+            ",quatW,quatX,quatY,quatZ";
+    private static final String CSV_HEADER_SUFFIX =
+            ",pressureToeOutside,pressureMidOutside,pressureToeInside,pressureCenter,"
                     + "pressureMidInside,pressureHeel,serialNumber,dataPosition,sidePosition,receivedAt";
 
     private final Context mContext;
@@ -68,8 +72,8 @@ public class MeasurementStorage {
             List<OrpheInsoleValue> rightValues,
             long startTimeMillis,
             long endTimeMillis,
-            String samplingRate,
-            String receiveMode
+            OrpheInsoleSamplingRate samplingRate,
+            OrpheSensorReceiveMode receiveMode
     ) throws IOException, JSONException {
         String id = UUID.randomUUID().toString();
         File measurementDir = measurementDir(id);
@@ -79,13 +83,13 @@ public class MeasurementStorage {
 
         String leftFileName = null;
         if (!leftValues.isEmpty()) {
-            writeString(csvFile(id, LEFT_CSV), toCsv(leftValues));
+            writeString(csvFile(id, LEFT_CSV), toCsv(leftValues, receiveMode, samplingRate));
             leftFileName = LEFT_CSV;
         }
 
         String rightFileName = null;
         if (!rightValues.isEmpty()) {
-            writeString(csvFile(id, RIGHT_CSV), toCsv(rightValues));
+            writeString(csvFile(id, RIGHT_CSV), toCsv(rightValues, receiveMode, samplingRate));
             rightFileName = RIGHT_CSV;
         }
 
@@ -98,8 +102,8 @@ public class MeasurementStorage {
                 rightFileName,
                 leftValues.size(),
                 rightValues.size(),
-                samplingRate,
-                receiveMode,
+                samplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz",
+                receiveModeLabel(receiveMode),
                 System.currentTimeMillis()
         );
 
@@ -194,17 +198,50 @@ public class MeasurementStorage {
         );
     }
 
-    static String toCsv(List<OrpheInsoleValue> values) {
+    static String toCsv(
+            List<OrpheInsoleValue> values,
+            OrpheSensorReceiveMode receiveMode,
+            OrpheInsoleSamplingRate samplingRate
+    ) {
+        final boolean includesQuaternion = includesQuaternion(receiveMode, samplingRate);
         StringBuilder builder = new StringBuilder();
-        builder.append(CSV_HEADER);
+        builder.append(CSV_HEADER_PREFIX);
+        if (includesQuaternion) {
+            builder.append(CSV_QUATERNION_HEADER);
+        }
+        builder.append(CSV_HEADER_SUFFIX);
         for (OrpheInsoleValue value : values) {
             builder.append('\n');
-            appendCsvRow(builder, value);
+            appendCsvRow(builder, value, includesQuaternion);
         }
         return builder.toString();
     }
 
-    private static void appendCsvRow(StringBuilder builder, OrpheInsoleValue value) {
+    private static boolean includesQuaternion(
+            OrpheSensorReceiveMode receiveMode,
+            OrpheInsoleSamplingRate samplingRate
+    ) {
+        return receiveMode == OrpheSensorReceiveMode.realtime
+                && samplingRate == OrpheInsoleSamplingRate.hz100;
+    }
+
+    private static String receiveModeLabel(OrpheSensorReceiveMode receiveMode) {
+        switch (receiveMode) {
+            case request:
+                return "Request";
+            case fifo:
+                return "FIFO";
+            case realtime:
+            default:
+                return "Realtime";
+        }
+    }
+
+    private static void appendCsvRow(
+            StringBuilder builder,
+            OrpheInsoleValue value,
+            boolean includesQuaternion
+    ) {
         appendCell(builder, String.format(Locale.US, "%.3f", value.startTime / 1000.0));
         appendCell(builder, Double.toString(value.accX));
         appendCell(builder, Double.toString(value.accY));
@@ -212,13 +249,12 @@ public class MeasurementStorage {
         appendCell(builder, Double.toString(value.gyroX));
         appendCell(builder, Double.toString(value.gyroY));
         appendCell(builder, Double.toString(value.gyroZ));
-        appendCell(builder, Double.toString(value.quatW));
-        appendCell(builder, Double.toString(value.quatX));
-        appendCell(builder, Double.toString(value.quatY));
-        appendCell(builder, Double.toString(value.quatZ));
-        appendCell(builder, Double.toString(value.eulerYaw));
-        appendCell(builder, Double.toString(value.eulerPitch));
-        appendCell(builder, Double.toString(value.eulerRoll));
+        if (includesQuaternion) {
+            appendCell(builder, Double.toString(value.quatW));
+            appendCell(builder, Double.toString(value.quatX));
+            appendCell(builder, Double.toString(value.quatY));
+            appendCell(builder, Double.toString(value.quatZ));
+        }
         appendCell(builder, Double.toString(value.pressureToeOutside));
         appendCell(builder, Double.toString(value.pressureMidOutside));
         appendCell(builder, Double.toString(value.pressureToeInside));

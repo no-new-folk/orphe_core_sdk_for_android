@@ -926,8 +926,8 @@ public class MainActivity extends AppCompatActivity {
                     rightValues,
                     startTime,
                     endTime,
-                    mSamplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz",
-                    receiveModeLabel()
+                    mSamplingRate,
+                    mReceiveMode
             );
             Toast.makeText(this, "計測を保存しました: " + record.totalCount() + "件", Toast.LENGTH_SHORT).show();
             loadMeasurementHistory();

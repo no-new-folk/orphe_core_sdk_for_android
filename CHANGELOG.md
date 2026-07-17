@@ -7,6 +7,8 @@
 ---
 
 - **CHORE**: SDK バージョンを 0.6.1 に更新し、`archives/orphecoresdk-release-0.6.1.aar` とサンプルAPK `orphe-core-sdk-sample-0.6.1.apk` を追加
+- **BREAKING**: CORE / INSOLEのEuler角計算を一時停止し、`OrpheSensorValue` / `OrpheInsoleValue`から`eulerYaw`・`eulerPitch`・`eulerRoll`公開フィールドを削除
+- **FIX**: サンプルアプリのCSV出力で、クオータニオン4列をRealtime 100Hzの場合だけ出力し、Request / FIFOおよびRealtime 200Hzではヘッダーごと除外。Euler角3列は全モードから削除
 
 ## 2026-07-14
 

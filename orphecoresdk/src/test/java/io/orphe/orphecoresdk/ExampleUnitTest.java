@@ -46,9 +46,6 @@ public class ExampleUnitTest {
             assertEquals(0.0, value.quatX, 0.0);
             assertEquals(0.0, value.quatY, 0.0);
             assertEquals(0.0, value.quatZ, 0.0);
-            assertEquals(0.0, value.eulerYaw, 0.0);
-            assertEquals(0.0, value.eulerPitch, 0.0);
-            assertEquals(0.0, value.eulerRoll, 0.0);
         }
     }
 
@@ -138,9 +135,6 @@ public class ExampleUnitTest {
             assertEquals(255.0 / 16384.0, value.quatX, 1.0E-9);
             assertEquals(-256.0 / 16384.0, value.quatY, 1.0E-9);
             assertEquals(0.5, value.quatZ, 1.0E-9);
-            assertEquals(1.107344907886798, value.eulerYaw, 1.0E-12);
-            assertEquals(-0.04683108089866195, value.eulerPitch, 1.0E-12);
-            assertEquals(0.015516779480520191, value.eulerRoll, 1.0E-12);
         }
     }
 
