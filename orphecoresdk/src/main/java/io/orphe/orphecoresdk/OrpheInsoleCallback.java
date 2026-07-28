@@ -72,6 +72,32 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
     }
 
     /**
+     * スキャンの開始に失敗したときのコールバック。
+     *
+     * <p>{@link android.bluetooth.le.ScanCallback}のエラーコードがそのまま渡されます。
+     * 主なものは1:ALREADY_STARTED、2:APPLICATION_REGISTRATION_FAILED、
+     * 3:INTERNAL_ERROR、4:FEATURE_UNSUPPORTED、5:OUT_OF_HARDWARE_RESOURCES、
+     * 6:SCANNING_TOO_FREQUENTLY（スキャンの頻度制限）です。</p>
+     *
+     * @param errorCode スキャン失敗のエラーコード。
+     */
+    public void onScanFailed(int errorCode) {
+    }
+
+    /**
+     * 接続したデバイスの左右が、期待していた左右と一致しなかったときのコールバック。
+     *
+     * <p>アドバタイズから左右が判別できず、左右不明候補として接続した場合に発生しえます。
+     * 接続自体は維持されるため、左右を入れ替えて接続し直すかどうかは呼び出し側で判断します。</p>
+     *
+     * @param bluetoothDevice 接続されたBluetoothDeviceが渡されます。
+     * @param expected 期待していた左右。
+     * @param actual 接続したデバイスから取得された実際の左右。
+     */
+    public void onSideMismatch(BluetoothDevice bluetoothDevice, OrpheSide expected, OrpheSide actual) {
+    }
+
+    /**
      * 接続されたときのコールバック。
      *
      * @param bluetoothDevice 接続されたBluetoothDeviceが渡されます。

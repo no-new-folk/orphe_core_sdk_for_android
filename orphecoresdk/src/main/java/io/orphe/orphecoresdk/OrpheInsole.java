@@ -21,6 +21,7 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.ParcelUuid;
 import android.util.Log;
+import android.util.SparseArray;
 
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
@@ -31,9 +32,11 @@ import androidx.annotation.RequiresApi;
 
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.ListIterator;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -70,6 +73,9 @@ public class OrpheInsole {
 
     private boolean mDebugMode;
     private OrpheInsoleSensorConfig mSensorConfig;
+    private OrpheInsoleScanConfig mScanConfig = OrpheInsoleScanConfig.DEFAULT;
+    /** スキャン結果のデバッグログを、1回のスキャンでアドレスごとに1度だけ出すための集合。 */
+    private final Set<String> mDebugScanLoggedAddresses = new HashSet<>();
     private boolean mRequestLoopStarted;
     private OrpheFifoRequester<OrpheInsoleValue[]> mFifoRequester;
     private OrpheFifoInitializer mFifoInitializer;
@@ -81,6 +87,17 @@ public class OrpheInsole {
             new OrpheInsoleSamplingRateGuard(SAMPLING_RATE_MAX_RETRY_COUNT);
     private boolean mSamplingRateValidationActive;
     private boolean mClosed;
+    private final Runnable mScanTimeoutRunnable = new Runnable() {
+        @SuppressLint("MissingPermission")
+        @Override
+        public void run() {
+            if (mStatus == OrpheCoreStatus.scanned) {
+                mBluetoothLeScanner.stopScan(scanCallback);
+                mStatus = OrpheCoreStatus.none;
+                mOrpheCallback.onScan(null, null);
+            }
+        }
+    };
     private final Runnable mRequestLoopRunnable = () -> {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requestLatestInsoleValueForFifoMode();
@@ -323,6 +340,15 @@ public class OrpheInsole {
     }
 
     /**
+     * スキャン判定設定を変更します。次回のスキャンから反映されます。
+     *
+     * @param scanConfig スキャン判定設定
+     */
+    public void setScanConfig(@NonNull final OrpheInsoleScanConfig scanConfig) {
+        mScanConfig = scanConfig;
+    }
+
+    /**
      * センサー値取得設定を変更します。接続中の場合は次回接続時に反映されます。
      *
      * @param sensorConfig センサー値取得設定
@@ -358,25 +384,25 @@ public class OrpheInsole {
         if (mStatus == OrpheCoreStatus.disconnecting || mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting) {
             return;
         }
-        if (mStatus == OrpheCoreStatus.scanned) {
-            mBluetoothLeScanner.stopScan(scanCallback);
-            mStatus = OrpheCoreStatus.none;
-        }
+        // すでにスキャン中の場合はスキャンを再開せず、タイムアウトのみ延長します。
+        // Androidにはアプリあたり30秒に5回というstartScanの頻度制限があり、
+        // 再スキャンを繰り返すと無言で結果が返らなくなるためです。
+        final boolean alreadyScanning = mStatus == OrpheCoreStatus.scanned;
         // if (mBluetoothDevice != null) {
         //    mOrpheCallback.onScan(mBluetoothDevice);
         //    connect(mBluetoothDevice);
         //    return;
         // }
-        mHandler.postDelayed(() -> {
-            if (mStatus == OrpheCoreStatus.scanned) {
-                mBluetoothLeScanner.stopScan(scanCallback);
-                mStatus = OrpheCoreStatus.none;
-                mOrpheCallback.onScan(null, null);
-            }
-        }, SCAN_PERIOD);
+        mHandler.removeCallbacks(mScanTimeoutRunnable);
+        mHandler.postDelayed(mScanTimeoutRunnable, SCAN_PERIOD);
+        if (alreadyScanning) {
+            Log.d(TAG, "startScan is already running. extend the timeout only.");
+            return;
+        }
 
         Log.d(TAG, "begin startScan");
         mStatus = OrpheCoreStatus.scanned;
+        mDebugScanLoggedAddresses.clear();
         // TODO: 暫定的にサービスUUIDによるフィルタはスキップ
         final List<ScanFilter> scanFilters = Arrays.asList(
                 //new ScanFilter.Builder()
@@ -386,8 +412,25 @@ public class OrpheInsole {
                 //      .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString()))
                 //    .build()
         );
-        mBluetoothLeScanner.startScan(scanFilters, new ScanSettings.Builder().build(),
-                scanCallback);
+        mBluetoothLeScanner.startScan(scanFilters, buildScanSettings(), scanCallback);
+    }
+
+    /**
+     * スキャン設定を構築します。
+     *
+     * <p>既定の{@link ScanSettings}は{@code SCAN_MODE_LOW_POWER}で、約5.12秒周期のうち
+     * 0.512秒しか受信しないため、20秒のスキャンでもアドバタイズを取り逃します。
+     * フォアグラウンドでの短時間スキャンしか行わないため低レイテンシを優先します。</p>
+     */
+    private ScanSettings buildScanSettings() {
+        final ScanSettings.Builder settings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setCallbackType(ScanSettings.CALLBACK_TYPE_ALL_MATCHES);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            settings.setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                    .setNumOfMatches(ScanSettings.MATCH_NUM_MAX_ADVERTISEMENT);
+        }
+        return settings.build();
     }
 
     /**
@@ -402,6 +445,7 @@ public class OrpheInsole {
             mBluetoothGatt.disconnect();
         }
         mBluetoothDevice = null;
+        mHandler.removeCallbacks(mScanTimeoutRunnable);
         if (mStatus == OrpheCoreStatus.scanned) {
             mBluetoothLeScanner.stopScan(scanCallback);
             mStatus = OrpheCoreStatus.none;
@@ -443,6 +487,8 @@ public class OrpheInsole {
         if (mStatus == OrpheCoreStatus.connected || mStatus == OrpheCoreStatus.connecting || mStatus == OrpheCoreStatus.disconnecting) {
             return;
         }
+        // 接続中にスキャンのタイムアウトが発火してstopScanされるのを防ぎます。
+        mHandler.removeCallbacks(mScanTimeoutRunnable);
         mBluetoothLeScanner.stopScan(scanCallback);
         if (mBluetoothGatt != null && mBluetoothGatt.getDevice().equals(device)) {
             Log.d(TAG, "BluetoothGatt already exists, try to connect");
@@ -451,7 +497,7 @@ public class OrpheInsole {
         } else {
             try {
                 // connect to the GATT server on the device
-                Log.d(TAG, "connect try to connect:" + mBluetoothDevice.getAddress());
+                Log.d(TAG, "connect try to connect:" + device.getAddress());
                 mStatus = OrpheCoreStatus.connecting;
                 mBluetoothGatt = device.connectGatt(mContext, true, mBluetoothGattCallback);
             } catch (IllegalArgumentException e) {
@@ -1052,47 +1098,143 @@ public class OrpheInsole {
         public void onScanResult(int callbackType, ScanResult result) {
             final BluetoothDevice device = result.getDevice();
             final ScanRecord record = result.getScanRecord();
-            if (record == null) {
+            if (device == null || record == null) {
                 return;
             }
-            final byte[] manufacturerData = record.getManufacturerSpecificData(0);
-            if (device == null || manufacturerData == null) {
+            // アドバタイズ由来の名前を優先します。device.getName()はキャッシュ由来で、
+            // 未ペアリングの機体ではnullになることがあります。
+            final String advertisedName = record.getDeviceName() != null
+                    ? record.getDeviceName()
+                    : device.getName();
+            final byte[] manufacturerData = pickManufacturerData(record);
+            logScanResult(result, device, record, advertisedName, manufacturerData);
+            final OrpheInsoleScanMatcher.Match match = OrpheInsoleScanMatcher.match(
+                    manufacturerData,
+                    advertisedName,
+                    device.getAddress(),
+                    mScanConfig.nameMatchEnabled
+            );
+            if (match == null) {
+                logScanSkipped(device, "not matched. name=" + advertisedName);
                 return;
             }
-            String deviceName = device.getName();
-            // TODO: 暫定的にManufacturerDataから探す
-            if (manufacturerData.length >= 15 && manufacturerData[0] == 1 && manufacturerData[5] == 1) {
-                // 左右情報が一致しない場合は排除
-                if(sidePosition.side == OrpheSide.left && manufacturerData[6] > 0){
-                    return;
-                } else if(sidePosition.side == OrpheSide.right && manufacturerData[6] != 1){
-                    return;
-                }
-                mBluetoothDevice = device;
-                deviceName = formatInsoleId(manufacturerData);
-                OrpheInsoleChargeStatus chargeStatus = OrpheInsoleChargeStatus.fromValue(manufacturerData[14]);
-                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName, chargeStatus));
+            if (match.side != null && sidePosition.side != OrpheSide.both
+                    && match.side != sidePosition.side) {
+                logScanSkipped(device, "side mismatch. expected=" + sidePosition.side
+                        + " actual=" + match.side);
                 return;
             }
-            // 左右情報が一致しない場合は排除
-            if (manufacturerData.length < 7) {
+            if (match.side == null && !match.isCore && !mScanConfig.allowUnknownSideCandidate) {
+                logScanSkipped(device, "side is unknown and unknown side candidate is disabled.");
                 return;
             }
-            if(sidePosition.side == OrpheSide.left && manufacturerData[6] > 0){
-                return;
-            } else if(sidePosition.side == OrpheSide.right && manufacturerData[6] != 1){
-                return;
-            }
-            if (deviceName == null) {
-                return;
-            }
-            if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
-                mBluetoothDevice = device;
-                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
-            }
+            mBluetoothDevice = device;
+            mOrpheCallback.onScan(
+                    device,
+                    new OrpheScanedMeta(match.deviceId, match.chargeStatus, match.side)
+            );
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            // 6:SCANNING_TOO_FREQUENTLYなどはログを出さないと無言で0件になるため必ず通知します。
+            Log.e(TAG, "onScanFailed[" + sidePosition + "] errorCode=" + errorCode);
+            mOrpheCallback.onScanFailed(errorCode);
         }
     };
 
+    /**
+     * アドバタイズからmanufacturer dataを取り出します。
+     *
+     * <p>従来互換のためCompany ID 0を最優先しますが、Company IDが異なる機体でも
+     * 判定に回せるように、無い場合は最初のエントリを採用します。</p>
+     */
+    private static byte[] pickManufacturerData(@NonNull final ScanRecord record) {
+        final SparseArray<byte[]> manufacturerData = record.getManufacturerSpecificData();
+        if (manufacturerData == null || manufacturerData.size() == 0) {
+            return null;
+        }
+        final byte[] preferred = manufacturerData.get(0);
+        if (preferred != null) {
+            return preferred;
+        }
+        return manufacturerData.valueAt(0);
+    }
+
+    /**
+     * スキャン結果の内容をデバッグログに出力します。
+     *
+     * <p>アドバタイズは100ms間隔で飛んでくるため、1回のスキャンでアドレスごとに
+     * 1度だけ出力します。</p>
+     */
+    private void logScanResult(
+            @NonNull final ScanResult result,
+            @NonNull final BluetoothDevice device,
+            @NonNull final ScanRecord record,
+            final String advertisedName,
+            final byte[] manufacturerData
+    ) {
+        if (!mDebugMode) {
+            return;
+        }
+        final String address = device.getAddress();
+        if (address != null && !mDebugScanLoggedAddresses.add(address)) {
+            return;
+        }
+        final StringBuilder builder = new StringBuilder();
+        builder.append("scan[").append(sidePosition).append("] ")
+                .append("address=").append(address)
+                .append(" rssi=").append(result.getRssi())
+                .append(" advName=").append(record.getDeviceName())
+                .append(" cachedName=").append(device.getName())
+                .append(" usedName=").append(advertisedName)
+                .append(" serviceUuids=").append(record.getServiceUuids());
+        final SparseArray<byte[]> allManufacturerData = record.getManufacturerSpecificData();
+        if (allManufacturerData == null || allManufacturerData.size() == 0) {
+            builder.append(" manufacturerData=none");
+        } else {
+            for (int i = 0; i < allManufacturerData.size(); i++) {
+                builder.append(" manufacturerData[companyId=")
+                        .append(allManufacturerData.keyAt(i))
+                        .append("]=")
+                        .append(bytesToHex(allManufacturerData.valueAt(i)));
+            }
+        }
+        builder.append(" picked=")
+                .append(manufacturerData == null ? "none" : bytesToHex(manufacturerData));
+        Log.d(TAG, builder.toString());
+    }
+
+    /**
+     * 接続したデバイスの左右が期待と一致しない場合に通知します。
+     *
+     * <p>アドバタイズから左右が判別できない機体は左右不明候補として左右どちらにも
+     * 通知されるため、接続後にDeviceInfoの左右と突き合わせて誤選択を検出します。
+     * 追加の通信は行わず、接続も維持します。</p>
+     */
+    private void notifySideMismatchIfNeeded(
+            final BluetoothDevice device,
+            @NonNull final DeviceInfoValue deviceInfo
+    ) {
+        if (sidePosition.side == OrpheSide.both) {
+            return;
+        }
+        final OrpheSide actual = deviceInfo.sidePosition.side;
+        if (actual == OrpheSide.both || actual == sidePosition.side) {
+            return;
+        }
+        Log.w(TAG, "Connected device side mismatch. expected=" + sidePosition.side
+                + " actual=" + actual);
+        mOrpheCallback.onSideMismatch(device, sidePosition.side, actual);
+    }
+
+    /** スキャン結果を対象外と判定した理由をデバッグログに出力します。 */
+    private void logScanSkipped(@NonNull final BluetoothDevice device, @NonNull final String reason) {
+        if (!mDebugMode) {
+            return;
+        }
+        Log.d(TAG, "scan skipped[" + sidePosition + "] address=" + device.getAddress() + " " + reason);
+    }
 
     // TODO: 不要になったら消す
     private static String bytesToHex(byte[] bytes) {
@@ -1306,6 +1448,7 @@ public class OrpheInsole {
                             try {
                                 final DeviceInfoValue deviceInfo = DeviceInfoValue.fromBytes(value);
                                 mDeviceInfo = deviceInfo;
+                                notifySideMismatchIfNeeded(gatt.getDevice(), deviceInfo);
                                 mOrpheCallback.gotDeviceInfo(deviceInfo);
                             } catch (Exception e) {
                                 Log.e(TAG, "Failed to parse device info. length=" + value.length, e);
@@ -1520,13 +1663,4 @@ public class OrpheInsole {
         return forwardDistance > 1 && forwardDistance - 1 <= Math.max(1, requestLength);
     }
 
-    private static String formatInsoleId(@NonNull byte[] data) {
-        long number = getUint32(data, 1);
-        char side = (data[6] == 0) ? 'L' : 'R';
-        return String.format("IN%08X%c", number, side);
-    }
-
-    private static long getUint32(@NonNull byte[] data, int index) {
-        return (long) (((data[index] & 0xFF) << 24) | ((data[index + 1] & 0xFF) << 16) | ((data[index + 2] & 0xFF) << 8) | (data[index + 3] & 0xFF));
-    }
 }
