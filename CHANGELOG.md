@@ -1,5 +1,16 @@
 # Change Log
 
+## 2026-07-28
+
+### Changes
+
+---
+
+- **CHORE**: SDK バージョンを 0.6.2 に更新し、`archives/orphecoresdk-release-0.6.2.aar` とサンプルAPK `orphe-core-sdk-sample-0.6.2.apk` を追加
+- **BREAKING**: INSOLEのジャイロ物理値換算を、LSM6DSOXのデータシート感度（±2000dpsで70 mdps/LSB）に基づく`生値 × 感度[dps/LSB]`へ修正。従来の`生値 ÷ 32768 × レンジ`は約12.8%過小だったため、`OrpheInsoleValue`の`gyroX` / `gyroY` / `gyroZ`は約14.7%大きい値になります。旧バージョン（〜0.6.1）で記録した`gyro`列は`× 1.14688`（全レンジ共通）で補正できます
+- **BREAKING**: 上記に伴い、INSOLEの`request` / `fifo`（200Hz）でSDKがMadgwick 6軸フィルタにより算出するクオータニオンの値も変化します。`realtime` 100Hzのデバイス算出クオータニオンは影響を受けません
+- **NOTE**: 加速度・圧力・`realtime` 100Hzのクオータニオンは影響ありません。CORE（`OrpheSensorValue`）のジャイロ換算はIMUの感度をFWチームに確認中のため今回は据え置きです
+
 ## 2026-07-17
 
 ### Changes

@@ -307,13 +307,12 @@ public class OrpheQuaternionTimelineTest {
         packet[5] = 30;
         for (int sample = 0; sample < 8; sample++) {
             final int index = sample * 12 + 8;
+            // INSOLEのデコード（生値×感度[dps/LSB]）の逆算で生値を組み立てる。
             putInt16(
                     packet,
                     index + 4,
                     (int) Math.round(
-                            gyroZDegreesPerSecond
-                                    / (double) OrpheGyroRange.range2000.value
-                                    * (1 << 15)
+                            gyroZDegreesPerSecond / OrpheGyroRange.range2000.sensitivity
                     )
             );
             putInt16(packet, index + 10, 1 << 11);

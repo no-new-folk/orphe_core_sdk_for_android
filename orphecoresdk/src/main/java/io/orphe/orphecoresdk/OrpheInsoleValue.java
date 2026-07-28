@@ -340,9 +340,10 @@ public class OrpheInsoleValue {
                     final double quatX = 0;
                     final double quatY = 0;
                     final double quatZ = 0;
-                    final double gyroX = parseInt(bytes, index) / (double) (1 << 15) * gyroRange.value;
-                    final double gyroY = parseInt(bytes, index + 2) / (double) (1 << 15) * gyroRange.value;
-                    final double gyroZ = parseInt(bytes, index + 4) / (double) (1 << 15) * gyroRange.value;
+                    // ジャイロはLSM6DSOXのデータシート感度[dps/LSB]で換算する。
+                    final double gyroX = parseInt(bytes, index) * gyroRange.sensitivity;
+                    final double gyroY = parseInt(bytes, index + 2) * gyroRange.sensitivity;
+                    final double gyroZ = parseInt(bytes, index + 4) * gyroRange.sensitivity;
                     final double accX = parseInt(bytes, index + 6) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 8) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 10) / (double) (1 << 15) * accRange.value;
@@ -408,9 +409,10 @@ public class OrpheInsoleValue {
                     final double quatX = parseInt(bytes, index + 2) / 16384.0;
                     final double quatY = parseInt(bytes, index + 4) / 16384.0;
                     final double quatZ = parseInt(bytes, index + 6) / 16384.0;
-                    final double gyroX = parseInt(bytes, index + 8) / (double) (1 << 15) * gyroRange.value;
-                    final double gyroY = parseInt(bytes, index + 10) / (double) (1 << 15) * gyroRange.value;
-                    final double gyroZ = parseInt(bytes, index + 12) / (double) (1 << 15) * gyroRange.value;
+                    // ジャイロはLSM6DSOXのデータシート感度[dps/LSB]で換算する。
+                    final double gyroX = parseInt(bytes, index + 8) * gyroRange.sensitivity;
+                    final double gyroY = parseInt(bytes, index + 10) * gyroRange.sensitivity;
+                    final double gyroZ = parseInt(bytes, index + 12) * gyroRange.sensitivity;
                     final double accX = parseInt(bytes, index + 14) / (double) (1 << 15) * accRange.value;
                     final double accY = parseInt(bytes, index + 16) / (double) (1 << 15) * accRange.value;
                     final double accZ = parseInt(bytes, index + 18) / (double) (1 << 15) * accRange.value;
