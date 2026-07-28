@@ -4,23 +4,7 @@ ORPHE COREに接続するためのJava SDKを提供します。
 
 ## インストール
 
-### ソースそのものを利用する
-
-1. `orphecoresdk`フォルダ内にあるすべてのファイルを利用したいプロジェクトのルートにコピーしてください
-
-2. プロジェクトの`settings.gradle(.kts)`を開き、SDKモジュールを追加します。
-
-    ```kotlin
-    include(":orphecoresdk")
-    ```
-
-3. プロジェクトの`app/build.gradle(.kts)`を開き`dependencies`に下記を追加します。
-
-    ```kotlin
-    implementation(project(":orphecoresdk"))
-    ```
-
-### aarファイルを追加します。
+### aarファイルを追加
 
 ※開発途中でありaarファイルが最新でない場合があります。その場合は上記の**ソースそのものを利用する**でSDKを追加してください。
 
@@ -199,6 +183,7 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
 - `OrpheInsoleCallback`の`onScan`に見つかったアドバタイズ中のORPHE INSOLEの`BluetoothDevice`オブジェクトが渡されます。
 
 - `OrpheInsoleCallback`の`onScan`で渡された`BluetoothDevice`を`OrpheInsole`オブジェクトの`connect`に渡すことで接続されます。
+
     ```java
     mOrpheInsole.connect(mBluetoothDevice);
     ```
@@ -230,7 +215,7 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
 
         - `OrpheSensorReceiveMode.realtime`: デバイスが送信したセンサー値をそのままNotifyで受け取ります。
         - `OrpheSensorReceiveMode.request`: アプリから指定した範囲だけを手動でリクエストします。
-        - `OrpheSensorReceiveMode.fifo`: SDKがPython版ところてんと同じcarry-over方式で常時リクエストし、欠損検出・再要求・重複排除・全体値へのシリアル順マージまで自動で行います。受信値のコールバックは欠損回収を待たず即時に呼ばれます。
+        - `OrpheSensorReceiveMode.fifo`: SDKがcarry-over方式で常時リクエストし、欠損検出・再要求・重複排除・全体値へのシリアル順マージまで自動で行います。受信値のコールバックは欠損回収を待たず即時に呼ばれます。
         - `OrpheInsoleSamplingRate.hz100`: 100Hz出力。`realtime`ではクオータニオン付きの0x38を受信し、SDKがオイラー角を計算します。`request` / `fifo`ではFWの200Hz蓄積データ（0x36）をSDK内で姿勢計算してから100Hzへ間引きます（未検証のため動作は保証しません）。
         - `OrpheInsoleSamplingRate.hz200`: 200Hz出力。`realtime`ではクオータニオンを含まない0x37のため、クオータニオン・オイラー角は0です。`request` / `fifo`ではFWの蓄積・再要求形式である0x36を受信し、SDK内でクオータニオンとオイラー角を計算します（未検証のため動作は保証しません）。
 
@@ -434,7 +419,7 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
 
         - `realtime`: リアルタイムNotify
         - `request`: アプリが指定した範囲だけを手動取得
-        - `fifo`: SDKがPython版ところてんと同じcarry-over方式で継続取得と欠損回収を自動実行
+        - `fifo`: SDKがcarry-over方式で継続取得と欠損回収を自動実行
 
         `request` / `fifo`はAndroid 13（API 33）以上で利用できます。Android 8.0（API 26）からAndroid 12L（API 32）までは`realtime`を使用してください。
 
@@ -485,6 +470,17 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
 
     - SDK内の姿勢計算は`orphe_insole`と同じMadgwick 6軸フィルタ（初期姿勢`[w,x,y,z] = [1,0,0,0]`、`beta = 0.1`、`dt = 5ms`）を使用します。加速度・ジャイロのX/Y/ZはBLE復号値を並べ替え・符号反転せず使用し、ジャイロだけdpsからrad/sへ変換します。磁気センサーを使わないため、roll/pitchは重力で補正されますがyawには時間経過によるドリフトがあります。
 
+    - INSOLEのジャイロ物理値は、LSM6DSOXのデータシート感度を用いて`生値[LSB] × 感度[dps/LSB]`で換算します。フルスケールを`生値 ÷ 32768 × レンジ`で割る換算は使用しません（データシート感度に対して約12.8%小さい値になるため）。
+
+        | `OrpheGyroRange` | レンジ | 感度[dps/LSB] |
+        | --- | --- | --- |
+        | `range250` | ±250dps | 0.00875 |
+        | `range500` | ±500dps | 0.0175 |
+        | `range1000` | ±1000dps | 0.035 |
+        | `range2000` | ±2000dps | 0.07 |
+
+        SDK 0.6.1以前で記録した過去データは、`gyroX` / `gyroY` / `gyroZ`に補正係数`1.14688`（全レンジ共通）を掛けることで補正できます。加速度・圧力・`realtime` 100Hzのデバイス算出クオータニオンは影響を受けません。`request` / `fifo`（200Hz）でSDKが算出するクオータニオンは、ジャイロを入力に使うため値が変化します。
+
 - またセンサー値のNotifyが有効になり、`OrpheCoreCallback`の`gotSensorValues`に各Notifyごとで送信されたセンサー値が渡されます。（１度のNotifyで最大4つのセンサー値が渡されます）
 
     - Notifyは50Hzで送られており4つのセンサー値を送ることで最大200Hzのセンサー値を取得することができます。
@@ -503,22 +499,3 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
     ```java
     mOrphe.getDeviceInfo();
     ```
-
-
-## 変更要望や質問について
-
-- ソースコードは下記のGithubで公開されています。
-
-    - 基本的にソースを見ればすべてわかるようになっています。
-
-        https://github.com/no-new-folk/orphe_core_sdk_for_android
-
-- 質問や変更要望についてはGithubのissueに書いて頂けると幸いです。
-
-    https://github.com/no-new-folk/orphe_core_sdk_for_android/issues
-
-- オープンソースにしておりますのでORPHE COREに関係ないような機能の追加やインターフェースの変更についてはご自身でForkされて変更されても問題ございません。
-
-    - 必要であればPullRequestを投げて頂けると適宜レビューの上マージさせていただきます。
-
-        https://github.com/no-new-folk/orphe_core_sdk_for_android/pulls

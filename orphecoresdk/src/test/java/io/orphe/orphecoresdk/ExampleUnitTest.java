@@ -71,9 +71,9 @@ public class ExampleUnitTest {
         assertEquals(1, values[0].dataPosition);
         assertEquals(0, values[1].dataPosition);
         assertEquals(10, values[1].startTime - values[0].startTime);
-        assertEquals(3000.0 / (1 << 15) * OrpheGyroRange.range2000.value,
+        assertEquals(3000.0 * OrpheGyroRange.range2000.sensitivity,
                 values[0].gyroX, 1.0E-9);
-        assertEquals(1000.0 / (1 << 15) * OrpheGyroRange.range2000.value,
+        assertEquals(1000.0 * OrpheGyroRange.range2000.sensitivity,
                 values[1].gyroX, 1.0E-9);
         assertEquals(123L, values[0].receivedAt);
     }
@@ -204,6 +204,35 @@ public class ExampleUnitTest {
             fail("Expected an invalid packet to be rejected.");
         } catch (Exception expected) {
             assertNotNull(expected.getMessage());
+        }
+    }
+
+    @Test
+    public void insoleGyroUsesDatasheetSensitivityForEveryRange() throws Exception {
+        final OrpheGyroRange[] ranges = {
+                OrpheGyroRange.range250,
+                OrpheGyroRange.range500,
+                OrpheGyroRange.range1000,
+                OrpheGyroRange.range2000
+        };
+        // LSM6DSOXのデータシート感度[dps/LSB]。生値1000のときのdps値。
+        final double[] expected = {8.75, 17.5, 35.0, 70.0};
+
+        for (int i = 0; i < ranges.length; i++) {
+            byte[] packet = requestPacket();
+            putInt16(packet, 3 * 24 + 8, 1000);
+
+            OrpheInsoleValue[] values = OrpheInsoleValue.fromBytes(
+                    packet,
+                    OrpheSidePosition.leftPlantar,
+                    OrpheAccRange.range16,
+                    ranges[i],
+                    OrpheInsolePressureCalibration.DEFAULT,
+                    0L,
+                    OrpheInsoleSamplingRate.hz200
+            );
+
+            assertEquals(ranges[i].name(), expected[i], values[0].gyroX, 1.0E-9);
         }
     }
 
