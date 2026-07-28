@@ -3,9 +3,11 @@ package io.orphe.orphecoresdkforandroid;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.bluetooth.BluetoothDevice;
+import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
+import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -24,6 +26,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.location.LocationManagerCompat;
 
 import java.util.ArrayList;
 import java.util.Date;
@@ -45,6 +48,7 @@ import io.orphe.orphecoresdk.OrpheInsoleSensorConfig;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheScanedMeta;
 import io.orphe.orphecoresdk.OrpheSensorReceiveMode;
+import io.orphe.orphecoresdk.OrpheSide;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
 public class MainActivity extends AppCompatActivity {
@@ -111,15 +115,20 @@ public class MainActivity extends AppCompatActivity {
         final BluetoothDevice device;
         final String deviceId;
         final String chargeStatus;
+        final boolean sideUnknown;
 
-        DeviceCandidate(BluetoothDevice device, String deviceId, String chargeStatus) {
+        DeviceCandidate(BluetoothDevice device, String deviceId, String chargeStatus, boolean sideUnknown) {
             this.device = device;
             this.deviceId = deviceId;
             this.chargeStatus = chargeStatus;
+            this.sideUnknown = sideUnknown;
         }
 
         String displayLabel() {
-            return String.format("%s  充電(%s)", deviceId, chargeStatus);
+            return String.format("%s  充電(%s)%s",
+                    deviceId,
+                    chargeStatus,
+                    sideUnknown ? "  （左右不明）" : "");
         }
     }
 
@@ -154,6 +163,16 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
             handleScanResult(true, bluetoothDevice, meta);
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            handleScanFailed(true, errorCode);
+        }
+
+        @Override
+        public void onSideMismatch(BluetoothDevice bluetoothDevice, OrpheSide expected, OrpheSide actual) {
+            handleSideMismatch(expected, actual);
         }
 
         @SuppressLint("MissingPermission")
@@ -195,6 +214,16 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
             handleScanResult(false, bluetoothDevice, meta);
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            handleScanFailed(false, errorCode);
+        }
+
+        @Override
+        public void onSideMismatch(BluetoothDevice bluetoothDevice, OrpheSide expected, OrpheSide actual) {
+            handleSideMismatch(expected, actual);
         }
 
         @SuppressLint("MissingPermission")
@@ -361,6 +390,13 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
+        // Android 11以下はBluetoothのスキャンに位置情報サービスの有効化が必要で、
+        // 無効なままだと無言で0件になります。
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S && !isLocationServiceEnabled()) {
+            mScanStatusTextView.setText("位置情報をONにしてください（スキャンに必要です）");
+            return;
+        }
+
         mHasScanned = true;
         if (canStartScan(mOrpheLeft.status())) {
             mFoundDevicesLeft.clear();
@@ -379,8 +415,18 @@ public class MainActivity extends AppCompatActivity {
         updateConnectionControls();
     }
 
+    private boolean isLocationServiceEnabled() {
+        final LocationManager locationManager =
+                (LocationManager) getSystemService(Context.LOCATION_SERVICE);
+        if (locationManager == null) {
+            return true;
+        }
+        return LocationManagerCompat.isLocationEnabled(locationManager);
+    }
+
+    // スキャン中の再スキャンはAndroidのstartScan頻度制限（30秒に5回）を無駄に消費するため許可しません。
     private boolean canStartScan(OrpheCoreStatus status) {
-        return status == OrpheCoreStatus.none || status == OrpheCoreStatus.scanned;
+        return status == OrpheCoreStatus.none;
     }
 
     private void updateConnectionControls() {
@@ -476,9 +522,10 @@ public class MainActivity extends AppCompatActivity {
         final String chargeStatus = meta != null && meta.chargeStatus != null
                 ? meta.chargeStatus.toString()
                 : "不明";
+        final boolean sideUnknown = meta == null || meta.sideIsUnknown();
         candidates.put(
                 resolveDeviceKey(bluetoothDevice, deviceId),
-                new DeviceCandidate(bluetoothDevice, deviceId, chargeStatus)
+                new DeviceCandidate(bluetoothDevice, deviceId, chargeStatus, sideUnknown)
         );
         updateCandidateStatus(statusView, candidates);
         updateConnectionControls();
@@ -490,16 +537,55 @@ public class MainActivity extends AppCompatActivity {
     ) {
         if (candidates.size() == 1) {
             final DeviceCandidate candidate = candidates.values().iterator().next();
-            statusView.setText(String.format("%s：機器が見つかりました. 充電(%s)",
+            statusView.setText(String.format("%s：機器が見つかりました. 充電(%s)%s",
                     candidate.deviceId,
-                    candidate.chargeStatus));
+                    candidate.chargeStatus,
+                    candidate.sideUnknown ? "（左右不明）" : ""));
         } else {
             statusView.setText(String.format(
                     Locale.US,
-                    "%d台の機器が見つかりました（Connectで選択）",
-                    candidates.size()
+                    "%d台の機器が見つかりました（Connectで選択）%s",
+                    candidates.size(),
+                    hasSideUnknownCandidate(candidates) ? "※左右不明の候補を含みます" : ""
             ));
         }
+    }
+
+    private void handleScanFailed(boolean left, int errorCode) {
+        runOnUiThread(() -> {
+            if (mDestroyed) {
+                return;
+            }
+            setScanning(left, false);
+            final String reason = errorCode == 6
+                    ? "スキャンの頻度制限（少し待って再試行）"
+                    : "エラーコード " + errorCode;
+            mScanStatusTextView.setText("スキャンに失敗しました：" + reason);
+            updateConnectionControls();
+        });
+    }
+
+    private void handleSideMismatch(OrpheSide expected, OrpheSide actual) {
+        runOnUiThread(() -> {
+            if (mDestroyed) {
+                return;
+            }
+            Toast.makeText(
+                    this,
+                    String.format("左右が一致しません（%s として接続しましたが実際は %s です）。"
+                            + "左右を入れ替えて接続し直してください", expected, actual),
+                    Toast.LENGTH_LONG
+            ).show();
+        });
+    }
+
+    private boolean hasSideUnknownCandidate(LinkedHashMap<String, DeviceCandidate> candidates) {
+        for (final DeviceCandidate candidate : candidates.values()) {
+            if (candidate.sideUnknown) {
+                return true;
+            }
+        }
+        return false;
     }
 
     @SuppressLint("MissingPermission")

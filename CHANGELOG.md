@@ -1,5 +1,25 @@
 # Change Log
 
+## 2026-07-28 (2)
+
+### Changes
+
+---
+
+- **FIX**: アドバタイズ名が`INS0…`のINSOLEがスキャンで見つからない不具合を修正。従来はメーカーデータ（Company ID 0）が取得できない時点で判定を打ち切っていたため、アドバタイズ名による判定に到達していませんでした
+- **FEAT**: ORPHE INSOLEの判定に**アドバタイズ名の`INS`プレフィックス**を追加（`DeviceNameDefine.ORPHE_INSOLE`）。判定順をアドバタイズ名優先に変更し、メーカーデータを持たない機体も検出できるようにしました
+- **FIX**: デバイス名の取得元を`BluetoothDevice.getName()`（キャッシュ由来。未ペアリング機体でnullになりやすい）から`ScanRecord.getDeviceName()`（アドバタイズ由来）優先に変更。CORE側（`Orphe`）も同様
+- **FIX**: メーカーデータのシグネチャ判定に必要な長さを15バイトから7バイトに緩和。充電ステータスは15バイト以上の場合のみ読み取ります
+- **FIX**: メーカーデータのCompany IDが0以外の機体も判定対象に含めるようにしました（Company ID 0を優先し、無い場合は先頭のエントリを使用）
+- **FIX**: ORPHE CORE（`CR-`）の候補に対して、レイアウトの異なるメーカーデータの左右バイトでフィルタしていた問題を修正。左右フィルタはメーカーデータ経路のみに限定したため、**これまで弾かれていたCORE機器が候補に出るようになります**
+- **FEAT**: アドバタイズから左右が判別できない機体を「左右不明候補」として左右両方に通知するようにしました。`OrpheScanedMeta`に`side` / `sideIsUnknown()`を追加。`OrpheInsoleScanConfig`と`OrpheInsole.setScanConfig`で無効化できます
+- **FEAT**: `OrpheInsoleCallback`に`onScanFailed(int errorCode)`と`onSideMismatch(BluetoothDevice, OrpheSide, OrpheSide)`を追加。従来はスキャン失敗（権限不足・スキャン頻度制限など）が完全に無言だったため、原因の切り分けができませんでした
+- **FIX**: スキャンのタイムアウトタイマーを`removeCallbacks`していなかったため、再スキャン時に前回のタイマーが新しいスキャンを停止して誤タイムアウトを通知していた問題を修正
+- **FIX**: `OrpheInsole.connect`のログが引数の`device`ではなくフィールドの`mBluetoothDevice`を参照していたため、切断直後に候補リストから再接続するとNPEになる問題を修正
+- **CHORE**: スキャン設定を`SCAN_MODE_LOW_LATENCY` / `MATCH_MODE_AGGRESSIVE`に変更。既定の`SCAN_MODE_LOW_POWER`は約5.12秒周期のうち0.512秒しか受信しないため、アドバタイズを取り逃していました
+- **CHORE**: スキャン中の再スキャンを行わないようにしました。Androidのスキャン頻度制限（アプリあたり30秒に5回）を無駄に消費し、無言で0件になるのを防ぎます
+- **CHORE**: サンプルアプリの`AndroidManifest.xml`で`BLUETOOTH_SCAN`に`android:usesPermissionFlags="neverForLocation"`を付与し、旧権限に`android:maxSdkVersion="30"`を指定。Android 11以下向けに位置情報サービスの有効判定も追加
+
 ## 2026-07-28
 
 ### Changes

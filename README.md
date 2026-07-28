@@ -81,13 +81,22 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
 - SDKモジュールのManifestには権限宣言が含まれていないため、利用側アプリの`AndroidManifest.xml`へ以下を追加します。
 
     ```xml
+    <!-- Android 12以降のBluetooth権限 -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_SCAN"
+        android:usesPermissionFlags="neverForLocation" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
-    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" />
-    <uses-permission android:name="android.permission.BLUETOOTH" />
-    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
-    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- Android 11以下の旧権限 -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" android:maxSdkVersion="30" />
     ```
+
+    `BLUETOOTH_SCAN`に`android:usesPermissionFlags="neverForLocation"`を付けないと、Android 12以降で`ACCESS_FINE_LOCATION`の許可も必要になり、許可されていない場合はスキャン結果が無言で0件になります。
+
+- Android 11以下では、権限が許可されていても**端末の位置情報サービスがOFFだとスキャン結果が0件**になります。`LocationManagerCompat.isLocationEnabled()`で確認し、OFFの場合はユーザーへ案内してください。
 
 - パーミッションの確認と必要であればリクエストを行います。Androidのバージョンによって位置情報の権限が必要な場合とBluetooth系の権限が必要な場合があります。
 
@@ -181,6 +190,13 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、`Realtime`かつ100Hz
     - 光った場合はアドバタイズしている状態になります。
 
 - `OrpheInsoleCallback`の`onScan`に見つかったアドバタイズ中のORPHE INSOLEの`BluetoothDevice`オブジェクトが渡されます。
+
+- ORPHE INSOLEの判定は、**アドバタイズ名の`INS`プレフィックス**を最優先で行い、一致しない場合にメーカーデータのシグネチャで判定します。そのためメーカーデータを持たない世代（アドバタイズ名が`INS0…`の機体など）も検出できます。
+    - メーカーデータが取得できる場合、`OrpheScanedMeta`の`deviceId`は従来どおり`IN`＋8桁16進数＋`L`/`R`形式になります。取得できない場合は**アドバタイズ名がそのまま`deviceId`**になります。`deviceId`を圧力補正値の保存キーに使う場合はこの違いに注意してください。
+    - メーカーデータから左右が判別できない場合、`OrpheScanedMeta`の`side`は`null`（`sideIsUnknown()`が`true`）になり、**左右両方の`OrpheInsole`に候補として通知されます**。どちらへ接続するかは呼び出し側で選択してください。この挙動は`setScanConfig`に`allowUnknownSideCandidate = false`の`OrpheInsoleScanConfig`を渡すと無効化できます。
+    - 左右不明のまま接続した場合、接続直後にデバイスから取得した左右と期待値が異なると`OrpheInsoleCallback`の`onSideMismatch`が呼ばれます（接続は維持されます）。
+
+- スキャンの開始に失敗した場合は`OrpheInsoleCallback`の`onScanFailed`にエラーコードが渡されます。`6`（`SCANNING_TOO_FREQUENTLY`）はAndroidのスキャン頻度制限（アプリあたり30秒に5回）に達したことを示します。
 
 - `OrpheInsoleCallback`の`onScan`で渡された`BluetoothDevice`を`OrpheInsole`オブジェクトの`connect`に渡すことで接続されます。
 

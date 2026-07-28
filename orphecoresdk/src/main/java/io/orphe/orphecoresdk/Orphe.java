@@ -12,6 +12,7 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanFilter;
+import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
 import android.content.Context;
@@ -902,7 +903,12 @@ public class Orphe {
             if(device == null){
                 return;
             }
-            final String deviceName = device.getName();
+            final ScanRecord record = result.getScanRecord();
+            // アドバタイズ由来の名前を優先します。device.getName()はキャッシュ由来で、
+            // 未ペアリングの機体ではnullになることがあります。
+            final String deviceName = record != null && record.getDeviceName() != null
+                    ? record.getDeviceName()
+                    : device.getName();
             Log.d(TAG, "onScanResult:" + deviceName);
             if(deviceName == null){
                 return;
@@ -911,6 +917,12 @@ public class Orphe {
                 mBluetoothDevice = device;
                 mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
             }
+        }
+
+        @Override
+        public void onScanFailed(int errorCode) {
+            // 6:SCANNING_TOO_FREQUENTLYなどはログを出さないと無言で0件になるため必ず出力します。
+            Log.e(TAG, "onScanFailed errorCode=" + errorCode);
         }
     };
 
