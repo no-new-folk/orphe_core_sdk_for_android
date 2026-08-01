@@ -247,6 +247,144 @@ public class OrpheFifoRequesterTest {
         assertEquals(Arrays.asList("200:1"), recorder.requests.get(1));
     }
 
+    @Test
+    public void stopReportsOutstandingCarryOverAsMissing() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.tick(300L); // 総タイムアウト(200ms)超過 → 2,3がcarry-overへ
+
+        requester.stop();
+
+        assertEquals(Arrays.asList(2, 3), recorder.missing);
+        assertFalse(requester.isRunning());
+        assertEquals(0, recorder.drainCompletions);
+    }
+
+    @Test
+    public void drainCompletesImmediatelyWhenNothingOutstanding() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.onValue(2, 2, 11L);
+        requester.onValue(3, 3, 12L);
+
+        assertTrue(requester.beginDrain(100L));
+        assertTrue(requester.isDraining());
+        requester.tick(100L);
+        requester.onCurrentState(3, 0, 110L); // FWに新規なし・持ち越しなし
+
+        assertEquals(1, recorder.drainCompletions);
+        assertEquals(0, recorder.lastDrainRecovered);
+        assertEquals(0, recorder.lastDrainUnrecovered);
+        assertTrue(recorder.missing.isEmpty());
+        assertFalse(requester.isRunning());
+    }
+
+    @Test
+    public void drainRecoversCarryOverAndForwardBacklogBeforeCompleting() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.onValue(3, 3, 12L);
+        requester.tick(300L); // 2がcarry-overへ
+
+        assertTrue(requester.beginDrain(400L));
+        requester.tick(400L);
+        // 停止時点でFWは5まで生成済み → catch-up(4..5) + carry-over(2)を要求する
+        requester.onCurrentState(5, 0, 410L);
+        requester.onValue(4, 4, 420L);
+        requester.onValue(2, 2, 421L);
+        requester.onValue(5, 5, 422L);
+
+        assertEquals(1, recorder.drainCompletions);
+        assertEquals(3, recorder.lastDrainRecovered);
+        assertEquals(0, recorder.lastDrainUnrecovered);
+        assertTrue(recorder.missing.isEmpty());
+        assertEquals(Arrays.asList(1, 3, 4, 2, 5), recorder.values);
+        assertFalse(requester.isRunning());
+    }
+
+    @Test
+    public void drainFreezesTargetWhileFirmwareKeepsProducing() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.onValue(2, 2, 11L);
+        requester.onValue(3, 3, 12L);
+
+        assertTrue(requester.beginDrain(1000L));
+        requester.tick(1000L);
+        requester.onCurrentState(5, 0, 1010L); // ターゲットを5に固定
+        requester.tick(1300L); // 応答なし → 総タイムアウト → 4,5がcarry-overへ → 再問い合わせ
+        requester.onCurrentState(8, 0, 1310L); // FWは8まで進んだが、5より先は要求しない
+        requester.onValue(4, 4, 1320L);
+        requester.onValue(5, 5, 1321L);
+
+        assertEquals(1, recorder.drainCompletions);
+        for (List<String> ranges : recorder.requests) {
+            for (String range : ranges) {
+                final String[] parts = range.split(":");
+                final int start = Integer.parseInt(parts[0]);
+                final int length = Integer.parseInt(parts[1]);
+                assertTrue("serial beyond frozen target was requested: " + range,
+                        start + length - 1 <= 5);
+            }
+        }
+        assertFalse(requester.isRunning());
+    }
+
+    @Test
+    public void drainDeadlineReportsUnrecoveredAndCompletes() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.onValue(2, 2, 11L);
+        requester.onValue(3, 3, 12L);
+
+        assertTrue(requester.beginDrain(1000L));
+        requester.tick(1000L);
+        requester.onCurrentState(6, 0, 1010L); // 4..6をcatch-up要求
+        requester.onValue(4, 4, 1020L);        // 4だけ回収できた
+        requester.tick(4000L);                 // drainTimeoutMillis(3000)経過
+
+        assertEquals(1, recorder.drainCompletions);
+        assertEquals(1, recorder.lastDrainRecovered);
+        assertEquals(2, recorder.lastDrainUnrecovered);
+        assertEquals(Arrays.asList(5, 6), recorder.missing);
+        assertFalse(requester.isRunning());
+    }
+
+    @Test
+    public void drainDisabledFallsBackToImmediateStop() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
+                20L,
+                new OrpheFifoConfig(10, 100L, 200L, 10, 1500, 0L),
+                recorder
+        );
+        requester.start();
+        requester.onCurrentState(3, 3, 0L);
+        requester.onValue(1, 1, 10L);
+        requester.tick(300L); // 2,3がcarry-overへ
+
+        assertFalse(requester.beginDrain(400L));
+
+        assertEquals(Arrays.asList(2, 3), recorder.missing);
+        assertEquals(0, recorder.drainCompletions);
+        assertFalse(requester.isRunning());
+    }
+
     private OrpheFifoRequester<Integer> requester(Recorder recorder) {
         return new OrpheFifoRequester<>(
                 20L,
@@ -258,6 +396,9 @@ public class OrpheFifoRequesterTest {
     private static final class Recorder
             implements OrpheFifoRequester.Listener<Integer> {
         int currentStateRequests;
+        int drainCompletions;
+        int lastDrainRecovered = -1;
+        int lastDrainUnrecovered = -1;
         final List<List<String>> requests = new ArrayList<>();
         final List<Integer> requestedSerialCounts = new ArrayList<>();
         final List<Integer> values = new ArrayList<>();
@@ -288,6 +429,13 @@ public class OrpheFifoRequesterTest {
         @Override
         public void onMissing(int serialNumber) {
             missing.add(serialNumber);
+        }
+
+        @Override
+        public void onDrainCompleted(int recoveredCount, int unrecoveredCount) {
+            drainCompletions++;
+            lastDrainRecovered = recoveredCount;
+            lastDrainUnrecovered = unrecoveredCount;
         }
     }
 }

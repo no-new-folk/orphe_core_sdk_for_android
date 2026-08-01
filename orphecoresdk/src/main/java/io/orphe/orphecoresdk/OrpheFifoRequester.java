@@ -25,8 +25,17 @@ final class OrpheFifoRequester<T> {
 
         void onValue(@NonNull T value);
 
-        /** FWがnoDataを返し、回復不能と確定したシリアルを通知する。 */
+        /** FWがnoDataを返した、または停止時に回収できず、回復不能と確定したシリアルを通知する。 */
         void onMissing(int serialNumber);
+
+        /**
+         * {@link #beginDrain(long)}で開始した回収フェーズが完了したことを通知する。
+         * 呼び出し時点で要求器は停止済み。
+         *
+         * @param recoveredCount   回収フェーズ中に受信できた値の数
+         * @param unrecoveredCount 回収できず missing として通知した数
+         */
+        void onDrainCompleted(int recoveredCount, int unrecoveredCount);
     }
 
     private final long serialIntervalMillis;
@@ -37,6 +46,15 @@ final class OrpheFifoRequester<T> {
     private boolean running;
     private Integer lastSerialNumber;
     private ActiveRequest activeRequest;
+
+    /** 回収フェーズ（drain/catch-up）中かどうか。runningと併存する。 */
+    private boolean draining;
+    /** 回収フェーズの締切[ms]。 */
+    private long drainDeadlineMillis;
+    /** 停止時点のFW最新シリアル（固定ターゲット）。最初のcurrentState応答で確定する。 */
+    private Integer drainTargetSerial;
+    /** 回収フェーズ中に受信できた値の数。 */
+    private int drainRecoveredCount;
 
     OrpheFifoRequester(
             final long serialIntervalMillis,
@@ -56,9 +74,53 @@ final class OrpheFifoRequester<T> {
         running = true;
     }
 
+    /**
+     * 即時停止する。
+     *
+     * <p>要求済みで未受信のシリアル（carry-over）はもう回収されないため、
+     * 「気づかない欠損」を防ぐ目的で missing として通知してから破棄する。
+     * 回収を試みてから停止したい場合は{@link #beginDrain(long)}を使う。
+     */
     void stop() {
+        if (running) {
+            reportOutstandingAsMissing();
+        }
         running = false;
+        draining = false;
         reset();
+    }
+
+    /**
+     * 回収フェーズ（drain/catch-up）に入る。
+     *
+     * <p>次のcurrentState応答でFWの最新シリアルを固定ターゲットとして確定し、
+     * そこまでの未要求分と、要求済み未受信分（carry-over）の回収を続ける。
+     * 完了（または{@code drainTimeoutMillis}経過）で{@link Listener#onDrainCompleted}を
+     * 呼んで停止する。回収中も{@link #tick(long)}を呼び続けること。
+     *
+     * @return 回収フェーズに入った場合true。停止済み・回収無効（drainTimeoutMillis=0）の
+     * 場合は即時停止して false
+     */
+    boolean beginDrain(final long nowMillis) {
+        if (!running) {
+            return false;
+        }
+        if (config.drainTimeoutMillis <= 0L) {
+            stop();
+            return false;
+        }
+        if (draining) {
+            return true;
+        }
+        draining = true;
+        drainDeadlineMillis = nowMillis + config.drainTimeoutMillis;
+        drainTargetSerial = null;
+        drainRecoveredCount = 0;
+        return true;
+    }
+
+    boolean isDraining() {
+        return draining;
     }
 
     /**
@@ -68,9 +130,16 @@ final class OrpheFifoRequester<T> {
         if (!running) {
             return;
         }
+        if (draining && nowMillis >= drainDeadlineMillis) {
+            finishDrain();
+            return;
+        }
         if (activeRequest != null) {
             if (activeRequest.hasTimedOut(nowMillis)) {
                 finishActiveRequest(true);
+                if (!running) {
+                    return;
+                }
             } else {
                 return;
             }
@@ -116,7 +185,16 @@ final class OrpheFifoRequester<T> {
             return;
         }
 
-        final int current = normalizeSerialNumber(currentSerialNumber);
+        int current = normalizeSerialNumber(currentSerialNumber);
+        if (draining) {
+            if (drainTargetSerial == null) {
+                // 停止時点のFW最新シリアルを固定ターゲットとして確定する。
+                // 以降にFWが生成する分は追わない（追うと回収が終わらない）。
+                drainTargetSerial = current;
+            } else {
+                current = drainTargetSerial;
+            }
+        }
         final NewRange newRange = calculateNewRange(current, accumulatedCount);
         final int reservedRanges = newRange.count > 0 ? 1 : 0;
         final int maxCarryRanges = MAX_REQUEST_RANGES - reservedRanges;
@@ -138,6 +216,10 @@ final class OrpheFifoRequester<T> {
         }
         requests.addAll(carryRequests);
         if (requests.isEmpty()) {
+            if (draining) {
+                // ターゲットまで要求済みで、持ち越しも無い＝回収完了。
+                finishDrain();
+            }
             return;
         }
 
@@ -159,6 +241,9 @@ final class OrpheFifoRequester<T> {
             if (activeRequest.resolvedSerials.add(normalized)) {
                 activeRequest.markProgress(nowMillis);
                 carryOverSerials.remove(normalized);
+                if (draining) {
+                    drainRecoveredCount++;
+                }
                 listener.onValue(value);
                 completeRequestIfResolved();
             }
@@ -167,7 +252,11 @@ final class OrpheFifoRequester<T> {
 
         // タイムアウト後、次の要求を作る前に遅延パケットが届いた場合も回収する。
         if (carryOverSerials.remove(normalized)) {
+            if (draining) {
+                drainRecoveredCount++;
+            }
             listener.onValue(value);
+            maybeCompleteDrain();
         }
     }
 
@@ -297,12 +386,78 @@ final class OrpheFifoRequester<T> {
             carryOverSerials.clear();
             lastSerialNumber = null;
         }
+
+        maybeCompleteDrain();
+    }
+
+    /**
+     * 回収フェーズの完了判定。要求中でなく、持ち越しが無く、確定済みターゲットまで
+     * 要求し終えていれば完了する。
+     */
+    private void maybeCompleteDrain() {
+        if (!draining || !running || activeRequest != null) {
+            return;
+        }
+        if (!carryOverSerials.isEmpty()) {
+            return;
+        }
+        if (drainTargetSerial == null || lastSerialNumber == null) {
+            // ターゲット未確定・再同期直後は次のcurrentState応答で判定する。
+            return;
+        }
+        if (forwardSerialDistance(lastSerialNumber, drainTargetSerial) <= 0) {
+            finishDrain();
+        }
+    }
+
+    /** 回収フェーズを終了し、取り残しを missing として通知してから停止する。 */
+    private void finishDrain() {
+        final int unrecovered = reportOutstandingAsMissing();
+        final int recovered = drainRecoveredCount;
+        running = false;
+        draining = false;
+        reset();
+        listener.onDrainCompleted(recovered, unrecovered);
+    }
+
+    /**
+     * 停止時点で回収不能と確定した未受信シリアルを missing として通知する。
+     *
+     * <p>対象: 持ち越し（要求済み未受信）、実行中要求の未解決分、および回収フェーズで
+     * 確定したターゲットまでの未要求分（catch-upしきれなかった分）。通知した数を返す。
+     */
+    private int reportOutstandingAsMissing() {
+        final LinkedHashSet<Integer> unrecovered = new LinkedHashSet<>(carryOverSerials);
+        if (activeRequest != null) {
+            for (int serialNumber : activeRequest.expectedSerials) {
+                if (!activeRequest.resolvedSerials.contains(serialNumber)) {
+                    unrecovered.add(serialNumber);
+                }
+            }
+        }
+        if (draining && drainTargetSerial != null && lastSerialNumber != null) {
+            final int gap = forwardSerialDistance(lastSerialNumber, drainTargetSerial);
+            for (int i = 1; i <= gap; i++) {
+                final int serialNumber = normalizeSerialNumber(lastSerialNumber + i);
+                if (activeRequest != null && activeRequest.resolvedSerials.contains(serialNumber)) {
+                    // 実行中要求で受信済み（またはnoData通知済み）の分は二重報告しない。
+                    continue;
+                }
+                unrecovered.add(serialNumber);
+            }
+        }
+        for (int serialNumber : unrecovered) {
+            listener.onMissing(serialNumber);
+        }
+        return unrecovered.size();
     }
 
     private void reset() {
         lastSerialNumber = null;
         activeRequest = null;
         carryOverSerials.clear();
+        drainTargetSerial = null;
+        drainRecoveredCount = 0;
     }
 
     static int normalizeSerialNumber(final int serialNumber) {

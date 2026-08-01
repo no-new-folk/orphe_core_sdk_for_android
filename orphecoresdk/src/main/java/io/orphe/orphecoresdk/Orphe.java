@@ -712,6 +712,12 @@ public class Orphe {
                     public void onMissing(int serialNumber) {
                         mOrpheCallback.sensorValueIsNotFound(serialNumber);
                     }
+
+                    @Override
+                    public void onDrainCompleted(int recoveredCount, int unrecoveredCount) {
+                        // CORE側は回収フェーズ（drain）を使用しない。
+                        // stop()時の未回収分は onMissing 経由で通知される。
+                    }
                 }
         );
     }
