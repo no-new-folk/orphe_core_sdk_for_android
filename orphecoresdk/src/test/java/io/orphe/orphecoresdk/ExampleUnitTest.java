@@ -40,7 +40,8 @@ public class ExampleUnitTest {
         assertEquals(0x1234, values[0].serialNumber);
         assertEquals(3, values[0].dataPosition);
         assertEquals(0, values[3].dataPosition);
-        assertEquals(15, values[3].startTime - values[0].startTime);
+        // 3フレーム × 4.808ms（実測ODR 208Hz） = 14.42ms → epochミリ秒への切り捨てで14
+        assertEquals(14, values[3].startTime - values[0].startTime);
         for (OrpheInsoleValue value : values) {
             assertEquals(0.0, value.quatW, 0.0);
             assertEquals(0.0, value.quatX, 0.0);
@@ -70,7 +71,8 @@ public class ExampleUnitTest {
         assertEquals(2, values.length);
         assertEquals(1, values[0].dataPosition);
         assertEquals(0, values[1].dataPosition);
-        assertEquals(10, values[1].startTime - values[0].startTime);
+        // 2フレーム × 4.808ms = 9.62ms → epochミリ秒への切り捨てで9
+        assertEquals(9, values[1].startTime - values[0].startTime);
         assertEquals(3000.0 * OrpheGyroRange.range2000.sensitivity,
                 values[0].gyroX, 1.0E-9);
         assertEquals(1000.0 * OrpheGyroRange.range2000.sensitivity,
@@ -93,7 +95,8 @@ public class ExampleUnitTest {
         assertEquals(4, values.length);
         assertEquals(3, values[0].dataPosition);
         assertEquals(0, values[3].dataPosition);
-        assertEquals(15, values[3].startTime - values[0].startTime);
+        // 3フレーム × 4.808ms = 14.42ms → 14
+        assertEquals(14, values[3].startTime - values[0].startTime);
     }
 
     @Test
@@ -129,7 +132,8 @@ public class ExampleUnitTest {
         assertEquals(0x1234, values[0].serialNumber);
         assertEquals(1, values[0].dataPosition);
         assertEquals(0, values[1].dataPosition);
-        assertEquals(10, values[1].startTime - values[0].startTime);
+        // 100Hzは208Hzストリームの1/2間引き: 2フレーム × 4.808ms = 9.62ms → 9
+        assertEquals(9, values[1].startTime - values[0].startTime);
         for (OrpheInsoleValue value : values) {
             assertEquals(1.0, value.quatW, 1.0E-9);
             assertEquals(255.0 / 16384.0, value.quatX, 1.0E-9);

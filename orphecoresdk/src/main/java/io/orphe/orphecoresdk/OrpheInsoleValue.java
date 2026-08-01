@@ -21,6 +21,20 @@ public class OrpheInsoleValue {
     static final int PACKET_LENGTH_200_HZ = 104;
     static final int PACKET_LENGTH_100_HZ = 72;
 
+    /**
+     * 実機IMUの実測出力データレート[Hz]。
+     *
+     * <p>名目は200Hzだが、実機のパケット到来間隔を2台×約1500パケットで実測すると
+     * 208.98Hz / 208.13Hz となり、LSM6DSOX の標準ODR 208Hz（約4.808ms/frame）に一致する。
+     * 5ms固定でパケット内のフレーム時刻を合成すると、パケット内だけが約4%引き伸ばされ、
+     * パケット境界で連続サンプルの時刻差が0や負になりうる（サンプル毎のdtで積分する処理が
+     * 系統的にずれる）。JS SDK（ORPHE-INSOLE.js v1.3.1 の {@code IMU_ODR_HZ}）と同じ根拠・同じ値。
+     */
+    public static final double IMU_ODR_HZ = 208.0;
+
+    /** 1フレームの間隔[ns]（= 1e9 / {@link #IMU_ODR_HZ} ≒ 4.808ms）。 */
+    static final long FRAME_INTERVAL_NANOS = Math.round(1_000_000_000.0 / IMU_ODR_HZ);
+
     /// 圧力係数のデフォルト値
     private static final double DEFAULT_COEFFICIENT1 = 2.77942;
     private static final double DEFAULT_COEFFICIENT2 = 0.00235;
@@ -333,7 +347,8 @@ public class OrpheInsoleValue {
                 for (int outputIndex = 0; outputIndex < samplePositions.length; outputIndex++) {
                     final int s = samplePositions[outputIndex];
                     index = s * 24 + 8;
-                    final long duration = (3 - s) * 5_000_000L;
+                    // フレーム間隔は名目5msではなく実測ODR（208Hz≒4.808ms）に合わせる。
+                    final long duration = (3 - s) * FRAME_INTERVAL_NANOS;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     // request / fifoの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
@@ -402,7 +417,8 @@ public class OrpheInsoleValue {
                 );
                 for (int s = 1; s >= 0; s--) {
                     index = s * 32 + 8;
-                    final long duration = (1 - s) * 10_000_000L;
+                    // 100Hzモードは208Hzストリームの1/2間引き＝2フレーム間隔（名目10msではなく約9.615ms）。
+                    final long duration = (1 - s) * 2L * FRAME_INTERVAL_NANOS;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     // realtime 100Hzではデバイス算出のクオータニオンを使用する。
                     final double quatW = parseInt(bytes, index) / 16384.0;
