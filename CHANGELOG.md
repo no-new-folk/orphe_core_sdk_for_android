@@ -1,5 +1,15 @@
 # Change Log
 
+## Unreleased
+
+### Changes
+
+---
+
+- **FEAT**: INSOLEのFIFO受信停止時に**回収フェーズ（drain / catch-up）**を追加。`setSensorConfig`でfifoから他モードへ切り替える際、停止時点でFWが生成済みのシリアルを固定ターゲットとして、未要求分（catch-up）と要求済み未受信分（carry-over）を回収してから新しい設定を適用します。従来は`stop()`が再要求キューを即座に破棄し、未要求のバックログも回収しなかったため、**欠損通知ゼロのまま収録末尾が数秒欠ける**ことがありました（2台同時収録の実測で、遅れた側が要求スパンの86〜89%しか記録されない例を確認。JS SDK [ORPHE-INSOLE.js#62](https://github.com/Orphe-OSS/ORPHE-INSOLE.js/pull/62) と同じ問題）。回収の上限時間は`OrpheFifoConfig.drainTimeoutMillis`（既定3000ms、`0`で従来どおり即時切替）。取りこぼしが無い正常系では1往復で完了します。回収できなかったシリアルは`sensorValueIsNotFound`で通知されます
+- **FIX**: FIFO受信の停止時（切断・`close`を含む）、要求済みで未受信のシリアルを`sensorValueIsNotFound`で通知してから破棄するようにしました。従来は無通知で破棄され、アプリから欠損に気づけませんでした（CORE `Orphe`のFIFO経路も同様）
+- **BREAKING**: INSOLEのパケット内フレーム時刻を、名目200Hz（5ms/frame）ではなく実測ODR **208Hz**（LSM6DSOXの標準ODR、約4.808ms/frame）で合成するようにしました。`OrpheInsoleValue`の`startTime`のパケット内間隔が約4%短くなります（200Hz経路: 5ms→約4.808ms、100Hz経路: 10ms→約9.615ms）。従来はパケット内だけが約4%引き伸ばされ、パケット境界で連続サンプルの時刻差が0や負になりえたため、サンプル毎のdtで角速度等を積分する処理が系統的にずれていました（JS SDK v1.3.1 の`IMU_ODR_HZ`と同じ根拠・同じ値）
+
 ## 2026-07-28 (2)
 
 ### Changes

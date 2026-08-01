@@ -78,6 +78,12 @@ public class OrpheInsole {
     private final Set<String> mDebugScanLoggedAddresses = new HashSet<>();
     private boolean mRequestLoopStarted;
     private OrpheFifoRequester<OrpheInsoleValue[]> mFifoRequester;
+
+    /** FIFO回収フェーズ（drain）完了後に適用する保留中のセンサー設定。 */
+    private OrpheInsoleSensorConfig mPendingSensorConfig;
+
+    /** FIFO回収フェーズを要求済みかどうか。 */
+    private boolean mFifoDrainRequested;
     private OrpheFifoInitializer mFifoInitializer;
     private OrpheInsoleValueAccumulator mFifoValues =
             new OrpheInsoleValueAccumulator();
@@ -351,9 +357,35 @@ public class OrpheInsole {
     /**
      * センサー値取得設定を変更します。接続中の場合は次回接続時に反映されます。
      *
+     * <p>fifo受信中に呼ばれた場合は、まず回収フェーズ（drain/catch-up）でFWバッファの
+     * 取り残しを回収してから新しい設定を適用します（上限は
+     * {@link OrpheFifoConfig#drainTimeoutMillis}。0で従来どおり即時切替）。
+     * 回収できなかったシリアルは{@link OrpheInsoleCallback#sensorValueIsNotFound}で通知されます。
+     *
      * @param sensorConfig センサー値取得設定
      */
     public void setSensorConfig(@NonNull final OrpheInsoleSensorConfig sensorConfig) {
+        if (mRequestLoopStarted
+                && mSensorConfig.receiveMode == OrpheSensorReceiveMode.fifo
+                && mStatus == OrpheCoreStatus.connected
+                && mFifoRequester != null) {
+            mPendingSensorConfig = sensorConfig;
+            if (mFifoDrainRequested) {
+                // すでに回収中: 適用する設定だけ差し替えて完了を待つ。
+                return;
+            }
+            if (mFifoRequester.beginDrain(System.currentTimeMillis())) {
+                mFifoDrainRequested = true;
+                Log.d(TAG, "FIFO drain before sensor config change");
+                return;
+            }
+            // 回収無効（drainTimeoutMillis=0）または停止済み: 即時適用へ。
+            mPendingSensorConfig = null;
+        }
+        applySensorConfigNow(sensorConfig);
+    }
+
+    private void applySensorConfigNow(@NonNull final OrpheInsoleSensorConfig sensorConfig) {
         final OrpheSensorReceiveMode previousReceiveMode = mSensorConfig.receiveMode;
         resetSamplingRateGuard();
         stopRequestLoop();
@@ -806,13 +838,22 @@ public class OrpheInsole {
 
     private void stopRequestLoop() {
         mRequestLoopStarted = false;
+        mFifoDrainRequested = false;
         mHandler.removeCallbacks(mRequestLoopRunnable);
         mHandler.removeCallbacks(mFifoInitializationRunnable);
         if (mFifoInitializer != null) {
             mFifoInitializer.stop();
         }
         if (mFifoRequester != null) {
+            // 回収中に切断等で停止した場合も含め、未回収分は missing として通知される。
             mFifoRequester.stop();
+        }
+        // 回収完了を待たずに停止した場合、保留中の設定は即時適用する
+        // （切断時は次回接続時に反映される従来semanticsに一致させる）。
+        final OrpheInsoleSensorConfig pending = mPendingSensorConfig;
+        if (pending != null) {
+            mPendingSensorConfig = null;
+            mHandler.post(() -> applySensorConfigNow(pending));
         }
     }
 
@@ -825,6 +866,10 @@ public class OrpheInsole {
         }
         final long nowMillis = System.currentTimeMillis();
         mFifoRequester.tick(nowMillis);
+        // tick中に回収フェーズが完了して設定が切り替わった場合はループを再開しない。
+        if (!mRequestLoopStarted) {
+            return;
+        }
         mHandler.postDelayed(
                 mRequestLoopRunnable,
                 mFifoRequester.nextTickDelayMillis(
@@ -902,6 +947,18 @@ public class OrpheInsole {
                     @Override
                     public void onMissing(int serialNumber) {
                         mOrpheCallback.sensorValueIsNotFound(serialNumber);
+                    }
+
+                    @Override
+                    public void onDrainCompleted(int recoveredCount, int unrecoveredCount) {
+                        Log.d(TAG, "FIFO drain completed: recovered=" + recoveredCount
+                                + " unrecovered=" + unrecoveredCount);
+                        mFifoDrainRequested = false;
+                        final OrpheInsoleSensorConfig pending = mPendingSensorConfig;
+                        mPendingSensorConfig = null;
+                        if (pending != null) {
+                            applySensorConfigNow(pending);
+                        }
                     }
                 }
         );
