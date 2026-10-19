@@ -6,6 +6,7 @@
 
 ---
 
+- **CHORE**: SDK バージョンを 0.6.3 に更新し、`archives/orphecoresdk-release-0.6.3.aar` とサンプルAPK `orphe-core-sdk-sample-0.6.3.apk` を追加
 - **FIX**: アドバタイズ名が`INS0…`のINSOLEがスキャンで見つからない不具合を修正。従来はメーカーデータ（Company ID 0）が取得できない時点で判定を打ち切っていたため、アドバタイズ名による判定に到達していませんでした
 - **FEAT**: ORPHE INSOLEの判定に**アドバタイズ名の`INS`プレフィックス**を追加（`DeviceNameDefine.ORPHE_INSOLE`）。判定順をアドバタイズ名優先に変更し、メーカーデータを持たない機体も検出できるようにしました
 - **FIX**: デバイス名の取得元を`BluetoothDevice.getName()`（キャッシュ由来。未ペアリング機体でnullになりやすい）から`ScanRecord.getDeviceName()`（アドバタイズ由来）優先に変更。CORE側（`Orphe`）も同様
