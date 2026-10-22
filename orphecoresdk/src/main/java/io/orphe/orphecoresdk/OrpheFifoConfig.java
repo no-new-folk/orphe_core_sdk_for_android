@@ -4,6 +4,9 @@ package io.orphe.orphecoresdk;
  * fifo受信方式のリクエスト設定。
  */
 public class OrpheFifoConfig {
+    /** {@link #drainTimeoutMillis}の既定値。 */
+    public static final long DEFAULT_DRAIN_TIMEOUT_MILLIS = 3000L;
+
     public static final OrpheFifoConfig DEFAULT =
             new OrpheFifoConfig(200, 200L, 5000L, 100, 1500);
 
@@ -24,6 +27,7 @@ public class OrpheFifoConfig {
                 requestTimeoutMillis,
                 legacyCarryOverLimit(maxRetryCount),
                 1500,
+                DEFAULT_DRAIN_TIMEOUT_MILLIS,
                 maxRetryCount
         );
     }
@@ -41,6 +45,30 @@ public class OrpheFifoConfig {
                 requestTimeoutMillis,
                 maxCarryOverSerials,
                 ringBufferCapacity,
+                DEFAULT_DRAIN_TIMEOUT_MILLIS,
+                0
+        );
+    }
+
+    /**
+     * @param drainTimeoutMillis FIFO停止時の回収フェーズ（drain/catch-up）の上限時間[ms]。
+     *                           0で無効（従来どおり即時停止。取り残しは missing として通知される）。
+     */
+    public OrpheFifoConfig(
+            final int requestLength,
+            final long requestIntervalMillis,
+            final long requestTimeoutMillis,
+            final int maxCarryOverSerials,
+            final int ringBufferCapacity,
+            final long drainTimeoutMillis
+    ) {
+        this(
+                requestLength,
+                requestIntervalMillis,
+                requestTimeoutMillis,
+                maxCarryOverSerials,
+                ringBufferCapacity,
+                drainTimeoutMillis,
                 0
         );
     }
@@ -51,6 +79,7 @@ public class OrpheFifoConfig {
             final long requestTimeoutMillis,
             final int maxCarryOverSerials,
             final int ringBufferCapacity,
+            final long drainTimeoutMillis,
             final int legacyMaxRetryCount
     ) {
         if (requestLength < 1 || requestLength > 200) {
@@ -71,11 +100,15 @@ public class OrpheFifoConfig {
             throw new IllegalArgumentException(
                     "ringBufferCapacity must be between 1 and 65535.");
         }
+        if (drainTimeoutMillis < 0L) {
+            throw new IllegalArgumentException("drainTimeoutMillis must not be negative.");
+        }
         this.requestLength = requestLength;
         this.requestIntervalMillis = requestIntervalMillis;
         this.requestTimeoutMillis = requestTimeoutMillis;
         this.maxCarryOverSerials = maxCarryOverSerials;
         this.ringBufferCapacity = ringBufferCapacity;
+        this.drainTimeoutMillis = drainTimeoutMillis;
         this.maxRetryCount = legacyMaxRetryCount;
     }
 
@@ -99,6 +132,15 @@ public class OrpheFifoConfig {
 
     /** FWリングバッファから安全に取得できる最大シリアル数。 */
     public final int ringBufferCapacity;
+
+    /**
+     * FIFO停止時の回収フェーズ（drain/catch-up）の上限時間[ms]。
+     *
+     * <p>停止時点でFWが既に生成済みのシリアルを固定ターゲットとして、未要求分（catch-up）と
+     * 要求済み未受信分（carry-over）の回収を続ける。0で無効（従来どおり即時停止）。
+     * 取りこぼしが無い正常系では1往復で完了するため、実質的な遅延はほぼ無い。
+     */
+    public final long drainTimeoutMillis;
 
     private static int legacyCarryOverLimit(final int maxRetryCount) {
         if (maxRetryCount < 0) {
