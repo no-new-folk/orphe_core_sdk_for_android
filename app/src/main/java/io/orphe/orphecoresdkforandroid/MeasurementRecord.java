@@ -15,6 +15,9 @@ public class MeasurementRecord {
     public final String samplingRate;
     public final String receiveMode;
     public final long createdAtMillis;
+    /** 左右のデバイス種別（INSOLE / CORE）。データのない側はnull。 */
+    public final String leftDeviceType;
+    public final String rightDeviceType;
 
     public MeasurementRecord(
             String id,
@@ -27,7 +30,9 @@ public class MeasurementRecord {
             int rightCount,
             String samplingRate,
             String receiveMode,
-            long createdAtMillis
+            long createdAtMillis,
+            String leftDeviceType,
+            String rightDeviceType
     ) {
         this.id = id;
         this.startTimeMillis = startTimeMillis;
@@ -40,10 +45,28 @@ public class MeasurementRecord {
         this.samplingRate = samplingRate;
         this.receiveMode = receiveMode;
         this.createdAtMillis = createdAtMillis;
+        this.leftDeviceType = leftDeviceType;
+        this.rightDeviceType = rightDeviceType;
     }
 
     public long durationMillis() {
         return Math.max(0L, endTimeMillis - startTimeMillis);
+    }
+
+    /** 計測したデバイス種別の表示名。COREを含まない旧履歴はINSOLEとして扱う。 */
+    public String deviceTypeLabel() {
+        final String left = leftCount > 0 ? deviceTypeOrInsole(leftDeviceType) : null;
+        final String right = rightCount > 0 ? deviceTypeOrInsole(rightDeviceType) : null;
+        if (left != null && right != null && !left.equals(right)) {
+            return "L:" + left + " R:" + right;
+        }
+        return left != null ? left : (right != null ? right : "INSOLE");
+    }
+
+    private static String deviceTypeOrInsole(String deviceType) {
+        return deviceType == null || deviceType.isEmpty()
+                ? SensorSample.DeviceType.insole.label
+                : deviceType;
     }
 
     public int totalCount() {
@@ -63,6 +86,8 @@ public class MeasurementRecord {
         object.put("samplingRate", samplingRate);
         object.put("receiveMode", receiveMode);
         object.put("createdAtMillis", createdAtMillis);
+        object.put("leftDeviceType", leftDeviceType);
+        object.put("rightDeviceType", rightDeviceType);
         return object;
     }
 
@@ -78,7 +103,9 @@ public class MeasurementRecord {
                 object.optInt("rightCount"),
                 object.optString("samplingRate"),
                 object.optString("receiveMode"),
-                object.optLong("createdAtMillis")
+                object.optLong("createdAtMillis"),
+                object.has("leftDeviceType") ? object.optString("leftDeviceType") : null,
+                object.has("rightDeviceType") ? object.optString("rightDeviceType") : null
         );
     }
 }

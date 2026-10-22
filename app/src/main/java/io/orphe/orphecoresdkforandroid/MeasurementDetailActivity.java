@@ -87,10 +87,11 @@ public class MeasurementDetailActivity extends AppCompatActivity {
         mTitleTextView.setText(mDateFormat.format(new Date(mRecord.startTimeMillis)));
         mSummaryTextView.setText(String.format(
                 Locale.US,
-                "Duration: %.1fs\nLeft: %d / Right: %d\n%s / %s",
+                "Duration: %.1fs\nLeft: %d / Right: %d\n%s / %s / %s",
                 mRecord.durationMillis() / 1000.0,
                 mRecord.leftCount,
                 mRecord.rightCount,
+                mRecord.deviceTypeLabel(),
                 mRecord.receiveMode,
                 mRecord.samplingRate
         ));

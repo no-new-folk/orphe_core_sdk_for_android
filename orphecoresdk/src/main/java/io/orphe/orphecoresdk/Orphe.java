@@ -11,7 +11,6 @@ import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
-import android.bluetooth.le.ScanFilter;
 import android.bluetooth.le.ScanRecord;
 import android.bluetooth.le.ScanResult;
 import android.bluetooth.le.ScanSettings;
@@ -19,7 +18,6 @@ import android.content.Context;
 import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
-import android.os.ParcelUuid;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -28,7 +26,6 @@ import androidx.annotation.RequiresApi;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -303,15 +300,13 @@ public class Orphe {
 
         Log.d(TAG, "begin startScan");
         mStatus = OrpheCoreStatus.scanned;
-        final List<ScanFilter> scanFilters = Arrays.asList(
-                new ScanFilter.Builder()
-                        .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_OTHER_SERVICE.toString()))
-                        .build(),
-                new ScanFilter.Builder()
-                        .setServiceUuid(ParcelUuid.fromString(GattUUIDDefine.UUID_SERVICE_ORPHE_INFORMATION.toString()))
-                        .build());
-        mBluetoothLeScanner.startScan(scanFilters, new ScanSettings.Builder().build(),
-                scanCallback);
+        // ORPHE COREはアドバタイズにサービスUUIDを含めないため、UUIDでフィルタすると見つかりません。
+        // フィルタせずにスキャンし、アドバタイズ名（CR-）で判定します。
+        final ScanSettings scanSettings = new ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .setMatchMode(ScanSettings.MATCH_MODE_AGGRESSIVE)
+                .build();
+        mBluetoothLeScanner.startScan(null, scanSettings, scanCallback);
     }
 
     /**
@@ -375,7 +370,8 @@ public class Orphe {
         } else {
             try {
                 // connect to the GATT server on the device
-                Log.d(TAG, "connect try to connect:" + mBluetoothDevice.getAddress());
+                Log.d(TAG, "connect try to connect:" + device.getAddress());
+                mBluetoothDevice = device;
                 mStatus = OrpheCoreStatus.connecting;
                 mBluetoothGatt = device.connectGatt(mContext, true, mBluetoothGattCallback);
             } catch (IllegalArgumentException e) {
@@ -440,8 +436,11 @@ public class Orphe {
             return;
         }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            mBluetoothGatt.writeCharacteristic(
+            final int result = mBluetoothGatt.writeCharacteristic(
                     characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            if (mDebugMode) {
+                Log.d(TAG, "setDeviceInfo:" + OrpheInsole.bytesToHex(value) + " result=" + result);
+            }
         } else {
             characteristic.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
             characteristic.setValue(value);
@@ -712,7 +711,9 @@ public class Orphe {
                     public void onMissing(int serialNumber) {
                         mOrpheCallback.sensorValueIsNotFound(serialNumber);
                     }
-                }
+                },
+                // CORE FWのcurrentSerial応答は蓄積件数を含まない（常に0）。
+                true
         );
     }
     
@@ -915,7 +916,7 @@ public class Orphe {
             }
             if (deviceName.contains(DeviceNameDefine.ORPHE_CORE)) {
                 mBluetoothDevice = device;
-                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName));
+                mOrpheCallback.onScan(device, new OrpheScanedMeta(deviceName, null, null, true));
             }
         }
 
@@ -1142,6 +1143,9 @@ public class Orphe {
         private void onNotified(@NonNull BluetoothGatt gatt, @NonNull BluetoothGattCharacteristic characteristic, @NonNull byte[] value) {
             final long receivedAt = System.currentTimeMillis();
             final Handler mainHandler = new Handler(Looper.getMainLooper());
+            if (mDebugMode) {
+                Log.d(TAG, "onNotified:" + characteristic.getUuid().toString() + " " + OrpheInsole.bytesToHex(value));
+            }
             // 歩容解析
             // if (GattUUIDDefine.UUID_CHAR_ORPHE_STEP_ANALYSIS.equals(characteristic.getUuid())) {
             //    mOrpheCallback.gotData(value);

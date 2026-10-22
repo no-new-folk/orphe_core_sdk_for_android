@@ -1131,7 +1131,7 @@ public class OrpheInsole {
             mBluetoothDevice = device;
             mOrpheCallback.onScan(
                     device,
-                    new OrpheScanedMeta(match.deviceId, match.chargeStatus, match.side)
+                    new OrpheScanedMeta(match.deviceId, match.chargeStatus, match.side, match.isCore)
             );
         }
 
@@ -1237,7 +1237,7 @@ public class OrpheInsole {
     }
 
     // TODO: 不要になったら消す
-    private static String bytesToHex(byte[] bytes) {
+    static String bytesToHex(byte[] bytes) {
         StringBuilder hexString = new StringBuilder();
         for (byte b : bytes) {
             hexString.append(String.format("%02x", b));

@@ -1,5 +1,21 @@
 # Change Log
 
+## 2026-10-22 (2)
+
+### Changes
+
+---
+
+- **FIX**: サンプルアプリがORPHE COREに接続してもグラフにデータが表示されない問題を修正。従来はCOREもINSOLE用の`OrpheInsole`で接続しており、COREのRealtimeパケット（0x32）が破棄され、FIFOでも蓄積・解析されませんでした。スキャン候補がCOREの場合はCORE用の`Orphe`で接続・受信するように変更し、acc / gyro / quatをグラフ表示・CSV保存します（圧力グラフは「COREには圧力センサーがありません」と表示し、CSVの圧力列は出力しません）
+- **FEAT**: `OrpheScanedMeta`に`isCore`を追加。`OrpheInsole`のスキャンで見つかった候補がORPHE COREかどうかを判別できます
+- **FIX**: `Orphe.startScan`がサービスUUIDでフィルタしていたため、サービスUUIDをアドバタイズしないORPHE COREが見つからない問題を修正。フィルタせずにアドバタイズ名（`CR-`）で判定し、スキャン設定を`SCAN_MODE_LOW_LATENCY` / `MATCH_MODE_AGGRESSIVE`に変更
+- **FIX**: `Orphe.connect`のログがフィールドの`mBluetoothDevice`を参照していたため、`Orphe.startScan`以外で見つけた`BluetoothDevice`を渡すとNPEになる問題を修正
+- **FIX**: ORPHE COREのRealtimeパケット（0x32）の時刻復号を修正。ミリ秒（byte6-7のuint16）と各時点の経過ミリ秒を`×1000ns`として読んでいたため、同じパケット内の4時点がほぼ同じ時刻になっていました。シリアル番号も符号なし16bitとして読むように修正
+- **FEAT**: `OrpheSensorValue.sidePosition`を公開フィールドに変更
+- **FIX**: ORPHE COREのFIFOでデータが1件も取得できない問題を修正。COREのFWはcurrentSerial応答（0x3501）に蓄積件数を含めない（常に0）ため、蓄積件数から初回範囲を決める方式では要求が一度も送られていませんでした。COREでは蓄積件数が0の場合に現在のシリアルを起点とし、以降のシリアルを継続要求します（INSOLEの動作は変更なし）
+- **CHORE**: `Orphe`のデバッグモードで、受信パケットとコマンド書き込みをログ出力するようにしました
+- **FIX**: サンプルアプリで、反対側に接続中のCOREが接続先の候補に表示されていた問題を修正
+
 ## 2026-10-22
 
 ### Changes

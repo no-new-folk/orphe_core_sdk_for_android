@@ -194,7 +194,7 @@ public class OrpheSensorValue {
             case 50: {
                 index = 2;
 
-                final int serialNumber = parseInt(bytes, 1);
+                final int serialNumber = getUint16(bytes, 1);
                 final LocalDateTime now = LocalDateTime.now();
                 final LocalDateTime baseTimestamp = LocalDateTime.of(
                         now.getYear(),
@@ -203,13 +203,15 @@ public class OrpheSensorValue {
                         getUint8(bytes, 3),
                         getUint8(bytes, 4),
                         getUint8(bytes, 5),
-                        getUint8(bytes, 6) * 1000
+                        // byte6-7はミリ秒（uint16）。
+                        getUint16(bytes, 6) * 1_000_000
                 );
                 for (int s = 3; s >= 0; s--) {
                     index = s * 21 + 8;
+                    // 2時点目以降は直前の1byteに基準時刻からの経過ミリ秒が入る。
                     final long duration = s == 0
                             ? 0
-                            : getUint8(bytes, index - 1) * 1000;
+                            : (bytes[index - 1] & 0xFF) * 1_000_000L;
                     final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     final double quatW = parseInt(bytes, index) / 16384.0;
                     final double quatX = parseInt(bytes, index + 2) / 16384.0;
@@ -408,7 +410,7 @@ public class OrpheSensorValue {
      *  取り付け位置。
      */
     @NonNull
-    final OrpheSidePosition sidePosition;
+    public final OrpheSidePosition sidePosition;
 
     /**
      * シリアルナンバー
