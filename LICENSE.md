@@ -28,6 +28,10 @@ ORPHE CORE SDK for Android は、ORPHE CORE および ORPHE INSOLE を使う人�
 
 この利用方針は、本リポジトリで公開しているすべてのバージョン（過去に公開した aar ファイルおよびサンプルAPKを含みます）に適用されます。
 
+ORPHEとの間で本SDKの利用に関する個別の契約を締結している場合は、その契約の定めが本利用方針に優先します。
+
+本SDKに含まれる、または本SDKと共に配布される第三者のコンポーネント（サンプルAPKに同梱される AndroidX・Material Components、Gradle Wrapper など）は、それぞれのライセンスに従います。本利用方針はこれらには適用されません。
+
 商用契約のご相談: https://orphe.io/
 
 ---
@@ -49,6 +53,10 @@ If you use the SDK to build a paid app, paid service, commercial SDK integration
 Within the free-use scope above, you may modify the SDK and redistribute it, with or without modification, provided that this file (the usage policy and the copyright notice) is included unchanged.
 
 This usage policy applies to all versions published in this repository, including previously released aar files and sample APKs.
+
+If you have entered into a separate agreement with ORPHE regarding the use of the SDK, the terms of that agreement take precedence over this usage policy.
+
+Third-party components included in or distributed with the SDK (such as AndroidX and Material Components bundled in the sample APKs, and the Gradle Wrapper) are subject to their respective licenses. This usage policy does not apply to them.
 
 Commercial licensing inquiries: https://orphe.io/
 
