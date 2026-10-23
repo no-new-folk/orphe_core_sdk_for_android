@@ -24,7 +24,6 @@ import java.util.Locale;
 import java.util.UUID;
 
 import io.orphe.orphecoresdk.OrpheInsoleSamplingRate;
-import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheSensorReceiveMode;
 
 public class MeasurementStorage {
@@ -36,9 +35,11 @@ public class MeasurementStorage {
             "timestamp,accX,accY,accZ,gyroX,gyroY,gyroZ";
     private static final String CSV_QUATERNION_HEADER =
             ",quatW,quatX,quatY,quatZ";
-    private static final String CSV_HEADER_SUFFIX =
+    private static final String CSV_PRESSURE_HEADER =
             ",pressureToeOutside,pressureMidOutside,pressureToeInside,pressureCenter,"
-                    + "pressureMidInside,pressureHeel,serialNumber,dataPosition,sidePosition,receivedAt";
+                    + "pressureMidInside,pressureHeel";
+    private static final String CSV_HEADER_SUFFIX =
+            ",serialNumber,dataPosition,sidePosition,receivedAt";
 
     private final Context mContext;
 
@@ -68,8 +69,8 @@ public class MeasurementStorage {
     }
 
     public MeasurementRecord saveMeasurement(
-            List<OrpheInsoleValue> leftValues,
-            List<OrpheInsoleValue> rightValues,
+            List<SensorSample> leftValues,
+            List<SensorSample> rightValues,
             long startTimeMillis,
             long endTimeMillis,
             OrpheInsoleSamplingRate samplingRate,
@@ -93,6 +94,8 @@ public class MeasurementStorage {
             rightFileName = RIGHT_CSV;
         }
 
+        final SensorSample.DeviceType leftDeviceType = deviceTypeOf(leftValues);
+        final SensorSample.DeviceType rightDeviceType = deviceTypeOf(rightValues);
         MeasurementRecord record = new MeasurementRecord(
                 id,
                 startTimeMillis,
@@ -102,9 +105,11 @@ public class MeasurementStorage {
                 rightFileName,
                 leftValues.size(),
                 rightValues.size(),
-                samplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz",
+                samplingRateLabel(leftDeviceType, rightDeviceType, samplingRate),
                 receiveModeLabel(receiveMode),
-                System.currentTimeMillis()
+                System.currentTimeMillis(),
+                leftDeviceType == null ? null : leftDeviceType.label,
+                rightDeviceType == null ? null : rightDeviceType.label
         );
 
         List<MeasurementRecord> records = loadRecords();
@@ -199,30 +204,58 @@ public class MeasurementStorage {
     }
 
     static String toCsv(
-            List<OrpheInsoleValue> values,
+            List<SensorSample> values,
             OrpheSensorReceiveMode receiveMode,
             OrpheInsoleSamplingRate samplingRate
     ) {
-        final boolean includesQuaternion = includesQuaternion(receiveMode, samplingRate);
+        final SensorSample.DeviceType deviceType = deviceTypeOf(values);
+        final boolean includesQuaternion = includesQuaternion(deviceType, receiveMode, samplingRate);
+        final boolean includesPressure = deviceType != SensorSample.DeviceType.core;
         StringBuilder builder = new StringBuilder();
         builder.append(CSV_HEADER_PREFIX);
         if (includesQuaternion) {
             builder.append(CSV_QUATERNION_HEADER);
         }
+        if (includesPressure) {
+            builder.append(CSV_PRESSURE_HEADER);
+        }
         builder.append(CSV_HEADER_SUFFIX);
-        for (OrpheInsoleValue value : values) {
+        for (SensorSample value : values) {
             builder.append('\n');
-            appendCsvRow(builder, value, includesQuaternion);
+            appendCsvRow(builder, value, includesQuaternion, includesPressure);
         }
         return builder.toString();
     }
 
-    private static boolean includesQuaternion(
+    /**
+     * デバイス算出のクオータニオンを受信できる組み合わせだけ出力する。
+     * INSOLEはRealtime 100Hz（0x38）、COREはRealtime（0x32）。
+     */
+    static boolean includesQuaternion(
+            SensorSample.DeviceType deviceType,
             OrpheSensorReceiveMode receiveMode,
             OrpheInsoleSamplingRate samplingRate
     ) {
-        return receiveMode == OrpheSensorReceiveMode.realtime
-                && samplingRate == OrpheInsoleSamplingRate.hz100;
+        if (receiveMode != OrpheSensorReceiveMode.realtime) {
+            return false;
+        }
+        return deviceType == SensorSample.DeviceType.core
+                || samplingRate == OrpheInsoleSamplingRate.hz100;
+    }
+
+    private static SensorSample.DeviceType deviceTypeOf(List<SensorSample> values) {
+        return values.isEmpty() ? null : values.get(0).deviceType;
+    }
+
+    // COREのRealtime / FIFOは約200Hz固定のため、INSOLEを含む場合だけ選択中のレートを記録する。
+    private static String samplingRateLabel(
+            SensorSample.DeviceType leftDeviceType,
+            SensorSample.DeviceType rightDeviceType,
+            OrpheInsoleSamplingRate samplingRate
+    ) {
+        final boolean includesInsole = leftDeviceType == SensorSample.DeviceType.insole
+                || rightDeviceType == SensorSample.DeviceType.insole;
+        return includesInsole && samplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz";
     }
 
     private static String receiveModeLabel(OrpheSensorReceiveMode receiveMode) {
@@ -239,8 +272,9 @@ public class MeasurementStorage {
 
     private static void appendCsvRow(
             StringBuilder builder,
-            OrpheInsoleValue value,
-            boolean includesQuaternion
+            SensorSample value,
+            boolean includesQuaternion,
+            boolean includesPressure
     ) {
         appendCell(builder, String.format(Locale.US, "%.3f", value.startTime / 1000.0));
         appendCell(builder, Double.toString(value.accX));
@@ -255,12 +289,11 @@ public class MeasurementStorage {
             appendCell(builder, Double.toString(value.quatY));
             appendCell(builder, Double.toString(value.quatZ));
         }
-        appendCell(builder, Double.toString(value.pressureToeOutside));
-        appendCell(builder, Double.toString(value.pressureMidOutside));
-        appendCell(builder, Double.toString(value.pressureToeInside));
-        appendCell(builder, Double.toString(value.pressureCenter));
-        appendCell(builder, Double.toString(value.pressureMidInside));
-        appendCell(builder, Double.toString(value.pressureHeel));
+        if (includesPressure && value.pressures != null) {
+            for (double pressure : value.pressures) {
+                appendCell(builder, Double.toString(pressure));
+            }
+        }
         appendCell(builder, Integer.toString(value.serialNumber));
         appendCell(builder, Integer.toString(value.dataPosition));
         appendCell(builder, value.sidePosition.name());

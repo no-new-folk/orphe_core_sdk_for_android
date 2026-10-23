@@ -247,6 +247,39 @@ public class OrpheFifoRequesterTest {
         assertEquals(Arrays.asList("200:1"), recorder.requests.get(1));
     }
 
+    @Test
+    public void zeroAccumulatedCountDoesNotRequestByDefault() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = requester(recorder);
+        requester.start();
+
+        requester.onCurrentState(3200, 0, 0L);
+        requester.onCurrentState(3205, 0, 200L);
+
+        assertTrue(recorder.requests.isEmpty());
+        assertFalse(requester.isAnchorKnown());
+    }
+
+    @Test
+    public void coreAnchorsAtCurrentSerialWhenAccumulatedCountIsUnavailable() {
+        Recorder recorder = new Recorder();
+        OrpheFifoRequester<Integer> requester = new OrpheFifoRequester<>(
+                40L,
+                new OrpheFifoConfig(10, 100L, 200L, 10, 1500),
+                recorder,
+                true
+        );
+        requester.start();
+
+        requester.onCurrentState(3200, 0, 0L);
+        assertTrue(recorder.requests.isEmpty());
+        assertTrue(requester.isAnchorKnown());
+        assertFalse(requester.hasActiveRequest());
+
+        requester.onCurrentState(3205, 0, 200L);
+        assertEquals(Arrays.asList("3200:6"), recorder.requests.get(0));
+    }
+
     private OrpheFifoRequester<Integer> requester(Recorder recorder) {
         return new OrpheFifoRequester<>(
                 20L,

@@ -95,6 +95,11 @@ public class SensorLineChartView extends View {
     }
 
     public void setUnavailableMessage(@Nullable String unavailableMessage) {
+        if (unavailableMessage == null
+                ? mUnavailableMessage == null
+                : unavailableMessage.equals(mUnavailableMessage)) {
+            return;
+        }
         mUnavailableMessage = unavailableMessage;
         mPoints.clear();
         invalidate();

@@ -11,6 +11,8 @@ import android.location.LocationManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.os.SystemClock;
 import android.util.Log;
 import android.view.View;
@@ -36,8 +38,11 @@ import java.util.Locale;
 import java.text.SimpleDateFormat;
 
 import io.orphe.orphecoresdk.DeviceInfoValue;
+import io.orphe.orphecoresdk.Orphe;
 import io.orphe.orphecoresdk.OrpheAccRange;
 import io.orphe.orphecoresdk.OrpheBatteryStatus;
+import io.orphe.orphecoresdk.OrpheCoreCallback;
+import io.orphe.orphecoresdk.OrpheCoreSensorConfig;
 import io.orphe.orphecoresdk.OrpheCoreStatus;
 import io.orphe.orphecoresdk.OrpheGyroRange;
 import io.orphe.orphecoresdk.OrpheInsole;
@@ -48,6 +53,7 @@ import io.orphe.orphecoresdk.OrpheInsoleSensorConfig;
 import io.orphe.orphecoresdk.OrpheInsoleValue;
 import io.orphe.orphecoresdk.OrpheScanedMeta;
 import io.orphe.orphecoresdk.OrpheSensorReceiveMode;
+import io.orphe.orphecoresdk.OrpheSensorValue;
 import io.orphe.orphecoresdk.OrpheSide;
 import io.orphe.orphecoresdk.OrpheSidePosition;
 
@@ -67,6 +73,11 @@ public class MainActivity extends AppCompatActivity {
     private TextView mConnectionStatusTextViewRight;
     private OrpheInsole mOrpheLeft;
     private OrpheInsole mOrpheRight;
+    // CR-のCOREはINSOLEのスキャンでも候補に出るため、スキャンはOrpheInsoleで行い、
+    // 接続と受信だけCORE用のOrpheを使います。
+    private Orphe mOrpheCoreLeft;
+    private Orphe mOrpheCoreRight;
+    private final Handler mMainHandler = new Handler(Looper.getMainLooper());
 
     private TextView mBatteryStatusTextViewLeft;
     private TextView mBatteryStatusTextViewRight;
@@ -95,14 +106,17 @@ public class MainActivity extends AppCompatActivity {
     private final LinkedHashMap<String, DeviceCandidate> mFoundDevicesRight = new LinkedHashMap<>();
     private String mDeviceIdLeft;
     private String mDeviceIdRight;
+    // 反対側で接続中の機器を候補から除くために、接続中のアドレスを保持します。
+    private String mConnectedAddressLeft;
+    private String mConnectedAddressRight;
     private boolean mScanningLeft = false;
     private boolean mScanningRight = false;
     private boolean mHasScanned = false;
     private MeasurementStorage mMeasurementStorage;
     private PressureCalibrationStorage mPressureCalibrationStorage;
     private final Object mMeasurementLock = new Object();
-    private final List<OrpheInsoleValue> mLeftMeasuredValues = new ArrayList<>();
-    private final List<OrpheInsoleValue> mRightMeasuredValues = new ArrayList<>();
+    private final List<SensorSample> mLeftMeasuredValues = new ArrayList<>();
+    private final List<SensorSample> mRightMeasuredValues = new ArrayList<>();
     private boolean mIsMeasuring = false;
     private long mMeasurementStartTimeMillis = 0L;
     private long mMeasurementEndTimeMillis = 0L;
@@ -116,19 +130,39 @@ public class MainActivity extends AppCompatActivity {
         final String deviceId;
         final String chargeStatus;
         final boolean sideUnknown;
+        final boolean isCore;
 
-        DeviceCandidate(BluetoothDevice device, String deviceId, String chargeStatus, boolean sideUnknown) {
+        DeviceCandidate(
+                BluetoothDevice device,
+                String deviceId,
+                String chargeStatus,
+                boolean sideUnknown,
+                boolean isCore
+        ) {
             this.device = device;
             this.deviceId = deviceId;
             this.chargeStatus = chargeStatus;
             this.sideUnknown = sideUnknown;
+            this.isCore = isCore;
         }
 
         String displayLabel() {
+            if (isCore) {
+                // COREは同じ名前（CR-3など）の機体が複数あるため、アドレス末尾で見分けます。
+                return String.format("%s (CORE)  %s", deviceId, shortAddress());
+            }
             return String.format("%s  充電(%s)%s",
                     deviceId,
                     chargeStatus,
                     sideUnknown ? "  （左右不明）" : "");
+        }
+
+        private String shortAddress() {
+            final String address = device != null ? device.getAddress() : null;
+            if (address == null || address.length() < 5) {
+                return "";
+            }
+            return address.substring(address.length() - 5);
         }
     }
 
@@ -136,14 +170,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void gotInsoleValues(OrpheInsoleValue[] values) {
             if (values != null && values.length > 0) {
-                appendMeasuredValues(values, true);
-                runOnUiThread(() -> {
-                    if (mDestroyed || !shouldUpdateChart(true)) {
-                        return;
-                    }
-                    appendInsoleValues(values, mLeftAccChart, mLeftGyroChart, mLeftQuatChart, mLeftPressureChart);
-                    updateMeasurementStatus();
-                });
+                handleSensorSamples(true, SensorSample.fromInsole(values));
             }
         }
         @Override
@@ -193,14 +220,7 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void gotInsoleValues(OrpheInsoleValue[] values) {
             if (values != null && values.length > 0) {
-                appendMeasuredValues(values, false);
-                runOnUiThread(() -> {
-                    if (mDestroyed || !shouldUpdateChart(false)) {
-                        return;
-                    }
-                    appendInsoleValues(values, mRightAccChart, mRightGyroChart, mRightQuatChart, mRightPressureChart);
-                    updateMeasurementStatus();
-                });
+                handleSensorSamples(false, SensorSample.fromInsole(values));
             }
         }
 
@@ -238,6 +258,53 @@ public class MainActivity extends AppCompatActivity {
             handleDisconnected(false, bluetoothDevice);
         }
     };
+
+    private final OrpheCoreCallback mOrpheCoreCallbackLeft = createCoreCallback(true);
+    private final OrpheCoreCallback mOrpheCoreCallbackRight = createCoreCallback(false);
+
+    private OrpheCoreCallback createCoreCallback(boolean left) {
+        return new OrpheCoreCallback() {
+            @Override
+            public void gotSensorValues(OrpheSensorValue[] values) {
+                if (values != null && values.length > 0) {
+                    handleSensorSamples(left, SensorSample.fromCore(values));
+                }
+            }
+
+            @Override
+            public void sensorValueIsNotFound(int serialNumber) {
+                Log.d(TAG, "CORE NotFound: " + serialNumber);
+            }
+
+            @Override
+            public void gotDeviceInfo(DeviceInfoValue value) {
+                final TextView batteryView = left
+                        ? mBatteryStatusTextViewLeft
+                        : mBatteryStatusTextViewRight;
+                if (batteryView != null) {
+                    batteryView.setText(value.batteryStatus.name());
+                }
+            }
+
+            @Override
+            public void onScan(BluetoothDevice bluetoothDevice, OrpheScanedMeta meta) {
+                handleScanResult(left, bluetoothDevice, meta);
+            }
+
+            @Override
+            public void onConnect(BluetoothDevice bluetoothDevice) {
+                handleConnected(left, bluetoothDevice);
+            }
+
+            @Override
+            public void onDisconnect(BluetoothDevice bluetoothDevice) {
+                handleDisconnected(left, bluetoothDevice);
+                // Orpheは切断直後に自前の再スキャンを始めますが、INSOLEも候補に出せるよう
+                // OrpheInsoleのスキャンへ切り替えます。
+                mMainHandler.post(() -> restartScanAfterCoreDisconnected(left));
+            }
+        };
+    }
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -288,6 +355,9 @@ public class MainActivity extends AppCompatActivity {
         OrpheInsoleSensorConfig sensorConfig = createSensorConfig();
         mOrpheLeft = new OrpheInsole(this, mOrpheCallbackLeft, OrpheSidePosition.leftPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true, sensorConfig);
         mOrpheRight = new OrpheInsole(this, mOrpheCallbackRight, OrpheSidePosition.rightPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true, sensorConfig);
+        OrpheCoreSensorConfig coreSensorConfig = createCoreSensorConfig();
+        mOrpheCoreLeft = new Orphe(this, mOrpheCoreCallbackLeft, OrpheSidePosition.leftPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true, coreSensorConfig);
+        mOrpheCoreRight = new Orphe(this, mOrpheCoreCallbackRight, OrpheSidePosition.rightPlantar, OrpheAccRange.range16, OrpheGyroRange.range2000, true, coreSensorConfig);
         setupSensorSettingSpinners();
         updateSensorSettingButtons();
         mScanButton.setOnClickListener(v -> startDeviceScan());
@@ -339,8 +409,11 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "onDestroy");
         mDestroyed = true;
         mIsMeasuring = false;
+        mMainHandler.removeCallbacksAndMessages(null);
         mOrpheLeft.close();
         mOrpheRight.close();
+        mOrpheCoreLeft.close();
+        mOrpheCoreRight.close();
         super.onDestroy();
     }
 
@@ -398,14 +471,14 @@ public class MainActivity extends AppCompatActivity {
         }
 
         mHasScanned = true;
-        if (canStartScan(mOrpheLeft.status())) {
+        if (canStartScan(statusOf(true))) {
             mFoundDevicesLeft.clear();
             mDeviceIdLeft = null;
             mScanningLeft = true;
             mConnectionStatusTextViewLeft.setText("スキャン中...");
             mOrpheLeft.startScan();
         }
-        if (canStartScan(mOrpheRight.status())) {
+        if (canStartScan(statusOf(false))) {
             mFoundDevicesRight.clear();
             mDeviceIdRight = null;
             mScanningRight = true;
@@ -429,20 +502,73 @@ public class MainActivity extends AppCompatActivity {
         return status == OrpheCoreStatus.none;
     }
 
+    /**
+     * その側の接続状態。COREが接続処理中・接続中ならCORE、それ以外はINSOLE（スキャンを含む）の状態を返します。
+     */
+    private OrpheCoreStatus statusOf(boolean left) {
+        final Orphe core = left ? mOrpheCoreLeft : mOrpheCoreRight;
+        if (isCoreActive(core)) {
+            return core.status();
+        }
+        final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
+        return insole == null ? OrpheCoreStatus.none : insole.status();
+    }
+
+    private static boolean isCoreActive(@Nullable Orphe core) {
+        if (core == null) {
+            return false;
+        }
+        final OrpheCoreStatus status = core.status();
+        return status == OrpheCoreStatus.connecting
+                || status == OrpheCoreStatus.connected
+                || status == OrpheCoreStatus.disconnecting;
+    }
+
+    /** その側で接続中のデバイス種別。未接続ならnull。 */
+    @Nullable
+    private SensorSample.DeviceType connectedDeviceType(boolean left) {
+        final Orphe core = left ? mOrpheCoreLeft : mOrpheCoreRight;
+        if (core != null && core.status() == OrpheCoreStatus.connected) {
+            return SensorSample.DeviceType.core;
+        }
+        final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
+        if (insole != null && insole.status() == OrpheCoreStatus.connected) {
+            return SensorSample.DeviceType.insole;
+        }
+        return null;
+    }
+
+    private void restartScanAfterCoreDisconnected(boolean left) {
+        if (mDestroyed) {
+            return;
+        }
+        final Orphe core = left ? mOrpheCoreLeft : mOrpheCoreRight;
+        final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
+        if (core.status() == OrpheCoreStatus.scanned) {
+            core.stopScan();
+        }
+        if (insole.status() == OrpheCoreStatus.none) {
+            insole.startScan();
+        }
+        updateConnectionControls();
+    }
+
     private void updateConnectionControls() {
-        if (mScanButton == null || mOrpheLeft == null || mOrpheRight == null) {
+        if (mScanButton == null || mOrpheLeft == null || mOrpheRight == null
+                || mOrpheCoreLeft == null || mOrpheCoreRight == null) {
             return;
         }
 
-        final OrpheCoreStatus leftStatus = mOrpheLeft.status();
-        final OrpheCoreStatus rightStatus = mOrpheRight.status();
+        final OrpheCoreStatus leftStatus = statusOf(true);
+        final OrpheCoreStatus rightStatus = statusOf(false);
         updateConnectionButton(mConnectButtonLeft, "Left", leftStatus, mFoundDevicesLeft.size());
         updateConnectionButton(mConnectButtonRight, "Right", rightStatus, mFoundDevicesRight.size());
+        // 圧力補正はINSOLEだけが対象です。
         mCalibrationButtonLeft.setEnabled(
-                leftStatus == OrpheCoreStatus.connected && hasText(mDeviceIdLeft)
+                connectedDeviceType(true) == SensorSample.DeviceType.insole && hasText(mDeviceIdLeft)
         );
         mCalibrationButtonRight.setEnabled(
-                rightStatus == OrpheCoreStatus.connected && hasText(mDeviceIdRight)
+                connectedDeviceType(false) == SensorSample.DeviceType.insole && hasText(mDeviceIdRight)
         );
 
         final boolean scanning = mScanningLeft || mScanningRight;
@@ -462,7 +588,7 @@ public class MainActivity extends AppCompatActivity {
         } else if (mHasScanned) {
             mScanStatusTextView.setText("スキャン完了。見つからない場合は再試行してください");
         } else {
-            mScanStatusTextView.setText("Scan Devicesを押してインソールを探してください");
+            mScanStatusTextView.setText("Scan Devicesを押してインソール・COREを探してください");
         }
     }
 
@@ -523,9 +649,10 @@ public class MainActivity extends AppCompatActivity {
                 ? meta.chargeStatus.toString()
                 : "不明";
         final boolean sideUnknown = meta == null || meta.sideIsUnknown();
+        final boolean isCore = meta != null && meta.isCore;
         candidates.put(
                 resolveDeviceKey(bluetoothDevice, deviceId),
-                new DeviceCandidate(bluetoothDevice, deviceId, chargeStatus, sideUnknown)
+                new DeviceCandidate(bluetoothDevice, deviceId, chargeStatus, sideUnknown, isCore)
         );
         updateCandidateStatus(statusView, candidates);
         updateConnectionControls();
@@ -537,6 +664,10 @@ public class MainActivity extends AppCompatActivity {
     ) {
         if (candidates.size() == 1) {
             final DeviceCandidate candidate = candidates.values().iterator().next();
+            if (candidate.isCore) {
+                statusView.setText(String.format("%s：機器が見つかりました", candidate.displayLabel()));
+                return;
+            }
             statusView.setText(String.format("%s：機器が見つかりました. 充電(%s)%s",
                     candidate.deviceId,
                     candidate.chargeStatus,
@@ -592,6 +723,12 @@ public class MainActivity extends AppCompatActivity {
     private void handleConnected(boolean left, BluetoothDevice bluetoothDevice) {
         setScanning(left, false);
         candidatesFor(left).clear();
+        final String address = bluetoothDevice != null ? bluetoothDevice.getAddress() : null;
+        if (left) {
+            mConnectedAddressLeft = address;
+        } else {
+            mConnectedAddressRight = address;
+        }
         if (left) {
             if (!hasText(mDeviceIdLeft)) {
                 mDeviceIdLeft = resolveDeviceId(bluetoothDevice, null);
@@ -599,7 +736,10 @@ public class MainActivity extends AppCompatActivity {
         } else if (!hasText(mDeviceIdRight)) {
             mDeviceIdRight = resolveDeviceId(bluetoothDevice, null);
         }
-        applyStoredPressureCalibration(left);
+        if (connectedDeviceType(left) == SensorSample.DeviceType.insole) {
+            applyStoredPressureCalibration(left);
+        }
+        updateDeviceTypeViews();
         final String deviceLabel = left ? mDeviceIdLeft : mDeviceIdRight;
         final TextView statusView = left
                 ? mConnectionStatusTextViewLeft
@@ -620,8 +760,10 @@ public class MainActivity extends AppCompatActivity {
         candidatesFor(left).clear();
         if (left) {
             mDeviceIdLeft = null;
+            mConnectedAddressLeft = null;
         } else {
             mDeviceIdRight = null;
+            mConnectedAddressRight = null;
         }
         setScanning(left, true);
         final TextView statusView = left
@@ -630,15 +772,19 @@ public class MainActivity extends AppCompatActivity {
         if (statusView != null) {
             statusView.setText(String.format("%s：接続解除、再スキャン中", deviceLabel));
         }
+        updateDeviceTypeViews();
         updateConnectionControls();
         updateMeasurementButtonStates();
     }
 
     private void handleConnectButton(boolean left) {
-        final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
-        final OrpheCoreStatus status = insole.status();
+        final OrpheCoreStatus status = statusOf(left);
         if (status == OrpheCoreStatus.connected) {
-            insole.disconnect();
+            if (connectedDeviceType(left) == SensorSample.DeviceType.core) {
+                (left ? mOrpheCoreLeft : mOrpheCoreRight).disconnect();
+            } else {
+                (left ? mOrpheLeft : mOrpheRight).disconnect();
+            }
             updateConnectionControls();
             return;
         }
@@ -646,8 +792,19 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
 
-        final List<DeviceCandidate> candidates = new ArrayList<>(candidatesFor(left).values());
+        final String otherSideAddress = left ? mConnectedAddressRight : mConnectedAddressLeft;
+        final List<DeviceCandidate> candidates = new ArrayList<>();
+        for (DeviceCandidate candidate : candidatesFor(left).values()) {
+            // COREは左右両方の候補に出るため、反対側で接続中の機器は除きます。
+            if (candidate.device != null
+                    && otherSideAddress != null
+                    && otherSideAddress.equals(candidate.device.getAddress())) {
+                continue;
+            }
+            candidates.add(candidate);
+        }
         if (candidates.isEmpty()) {
+            Toast.makeText(this, "接続できる機器がありません（反対側で接続中です）", Toast.LENGTH_SHORT).show();
             return;
         }
         if (candidates.size() == 1) {
@@ -675,7 +832,7 @@ public class MainActivity extends AppCompatActivity {
 
     private void connectToCandidate(boolean left, DeviceCandidate candidate) {
         final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
-        final OrpheCoreStatus status = insole.status();
+        final OrpheCoreStatus status = statusOf(left);
         if (status == OrpheCoreStatus.connected
                 || status == OrpheCoreStatus.connecting
                 || status == OrpheCoreStatus.disconnecting) {
@@ -686,7 +843,13 @@ public class MainActivity extends AppCompatActivity {
         } else {
             mDeviceIdRight = candidate.deviceId;
         }
-        insole.connect(candidate.device);
+        if (candidate.isCore) {
+            // INSOLE側のスキャンを止めてから、CORE用のOrpheで接続します。
+            insole.stopScan();
+            (left ? mOrpheCoreLeft : mOrpheCoreRight).connect(candidate.device);
+        } else {
+            insole.connect(candidate.device);
+        }
         updateConnectionControls();
     }
 
@@ -732,7 +895,7 @@ public class MainActivity extends AppCompatActivity {
         final OrpheInsole insole = left ? mOrpheLeft : mOrpheRight;
         final String deviceId = left ? mDeviceIdLeft : mDeviceIdRight;
         if (insole == null
-                || insole.status() != OrpheCoreStatus.connected
+                || connectedDeviceType(left) != SensorSample.DeviceType.insole
                 || !hasText(deviceId)) {
             Toast.makeText(this, "Connect the insole first", Toast.LENGTH_SHORT).show();
             return;
@@ -782,6 +945,10 @@ public class MainActivity extends AppCompatActivity {
 
     private OrpheInsoleSensorConfig createSensorConfig() {
         return new OrpheInsoleSensorConfig(mReceiveMode, mSamplingRate);
+    }
+
+    private OrpheCoreSensorConfig createCoreSensorConfig() {
+        return new OrpheCoreSensorConfig(mReceiveMode);
     }
 
     private void setupSensorSettingSpinners() {
@@ -851,16 +1018,27 @@ public class MainActivity extends AppCompatActivity {
         if (mOrpheRight != null) {
             mOrpheRight.setSensorConfig(sensorConfig);
         }
+        final OrpheCoreSensorConfig coreSensorConfig = createCoreSensorConfig();
+        if (mOrpheCoreLeft != null) {
+            mOrpheCoreLeft.setSensorConfig(coreSensorConfig);
+        }
+        if (mOrpheCoreRight != null) {
+            mOrpheCoreRight.setSensorConfig(coreSensorConfig);
+        }
         updateSensorSettingButtons();
     }
 
     private void updateSensorSettingButtons() {
         final String receiveModeLabel = receiveModeLabel();
         if (mSensorSettingTextView != null) {
+            final boolean coreConnected =
+                    connectedDeviceType(true) == SensorSample.DeviceType.core
+                            || connectedDeviceType(false) == SensorSample.DeviceType.core;
             mSensorSettingTextView.setText(String.format(
-                    "%s / %s",
+                    "%s / %s%s",
                     receiveModeLabel,
-                    mSamplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz"
+                    mSamplingRate == OrpheInsoleSamplingRate.hz100 ? "100Hz" : "200Hz",
+                    coreConnected ? "（COREは200Hz固定）" : ""
             ));
         }
         mUpdatingSensorSettingSpinners = true;
@@ -878,23 +1056,47 @@ public class MainActivity extends AppCompatActivity {
         updateQuaternionChartVisibility();
     }
 
+    /** 接続中のデバイス種別に応じて、グラフの表示と設定表示を更新します。 */
+    private void updateDeviceTypeViews() {
+        updateSensorSettingButtons();
+        updatePressureChartAvailability(mLeftPressureChart, connectedDeviceType(true));
+        updatePressureChartAvailability(mRightPressureChart, connectedDeviceType(false));
+    }
+
+    private void updatePressureChartAvailability(
+            @Nullable SensorLineChartView pressureChart,
+            @Nullable SensorSample.DeviceType deviceType
+    ) {
+        if (pressureChart == null) {
+            return;
+        }
+        pressureChart.setUnavailableMessage(deviceType == SensorSample.DeviceType.core
+                ? "COREには圧力センサーがありません"
+                : null);
+    }
+
     private void updateQuaternionChartVisibility() {
-        final int visibility = mReceiveMode == OrpheSensorReceiveMode.realtime
-                && mSamplingRate == OrpheInsoleSamplingRate.hz100
-                ? View.VISIBLE
-                : View.GONE;
-        if (mLeftQuatChart != null) {
-            if (visibility == View.GONE) {
-                mLeftQuatChart.clear();
-            }
-            mLeftQuatChart.setVisibility(visibility);
+        updateQuaternionChartVisibility(mLeftQuatChart, connectedDeviceType(true));
+        updateQuaternionChartVisibility(mRightQuatChart, connectedDeviceType(false));
+    }
+
+    private void updateQuaternionChartVisibility(
+            @Nullable SensorLineChartView quatChart,
+            @Nullable SensorSample.DeviceType deviceType
+    ) {
+        if (quatChart == null) {
+            return;
         }
-        if (mRightQuatChart != null) {
-            if (visibility == View.GONE) {
-                mRightQuatChart.clear();
-            }
-            mRightQuatChart.setVisibility(visibility);
+        // デバイスが算出したクオータニオンを受信できる組み合わせだけ表示します。
+        final int visibility = MeasurementStorage.includesQuaternion(
+                deviceType == null ? SensorSample.DeviceType.insole : deviceType,
+                mReceiveMode,
+                mSamplingRate
+        ) ? View.VISIBLE : View.GONE;
+        if (visibility == View.GONE) {
+            quatChart.clear();
         }
+        quatChart.setVisibility(visibility);
     }
 
     private String receiveModeLabel() {
@@ -918,27 +1120,37 @@ public class MainActivity extends AppCompatActivity {
         mRightPressureChart.configure("Right pressure", "TO", "MO", "TI", "C", "MI", "H");
     }
 
-    private void appendInsoleValues(
-            OrpheInsoleValue[] values,
+    private void handleSensorSamples(boolean left, SensorSample[] samples) {
+        appendMeasuredValues(samples, left);
+        runOnUiThread(() -> {
+            if (mDestroyed || !shouldUpdateChart(left)) {
+                return;
+            }
+            if (left) {
+                appendSensorSamples(samples, mLeftAccChart, mLeftGyroChart, mLeftQuatChart, mLeftPressureChart);
+            } else {
+                appendSensorSamples(samples, mRightAccChart, mRightGyroChart, mRightQuatChart, mRightPressureChart);
+            }
+            updateMeasurementStatus();
+        });
+    }
+
+    private void appendSensorSamples(
+            SensorSample[] samples,
             SensorLineChartView accChart,
             SensorLineChartView gyroChart,
             SensorLineChartView quatChart,
             SensorLineChartView pressureChart
     ) {
-        for (OrpheInsoleValue value : values) {
-            accChart.addValues(value.accX, value.accY, value.accZ);
-            gyroChart.addValues(value.gyroX, value.gyroY, value.gyroZ);
+        for (SensorSample sample : samples) {
+            accChart.addValues(sample.accX, sample.accY, sample.accZ);
+            gyroChart.addValues(sample.gyroX, sample.gyroY, sample.gyroZ);
             if (quatChart.getVisibility() == View.VISIBLE) {
-                quatChart.addValues(value.quatW, value.quatX, value.quatY, value.quatZ);
+                quatChart.addValues(sample.quatW, sample.quatX, sample.quatY, sample.quatZ);
             }
-            pressureChart.addValues(
-                    value.pressureToeOutside,
-                    value.pressureMidOutside,
-                    value.pressureToeInside,
-                    value.pressureCenter,
-                    value.pressureMidInside,
-                    value.pressureHeel
-            );
+            if (sample.pressures != null) {
+                pressureChart.addValues(sample.pressures);
+            }
         }
     }
 
@@ -956,13 +1168,13 @@ public class MainActivity extends AppCompatActivity {
         return true;
     }
 
-    private void appendMeasuredValues(OrpheInsoleValue[] values, boolean left) {
+    private void appendMeasuredValues(SensorSample[] values, boolean left) {
         synchronized (mMeasurementLock) {
             if (!mIsMeasuring) {
                 return;
             }
-            List<OrpheInsoleValue> target = left ? mLeftMeasuredValues : mRightMeasuredValues;
-            for (OrpheInsoleValue value : values) {
+            List<SensorSample> target = left ? mLeftMeasuredValues : mRightMeasuredValues;
+            for (SensorSample value : values) {
                 target.add(value);
             }
         }
@@ -986,8 +1198,8 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void stopAndSaveMeasurement() {
-        List<OrpheInsoleValue> leftValues;
-        List<OrpheInsoleValue> rightValues;
+        List<SensorSample> leftValues;
+        List<SensorSample> rightValues;
         long startTime;
         long endTime = System.currentTimeMillis();
         synchronized (mMeasurementLock) {
@@ -1087,8 +1299,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private boolean hasConnectedDevice() {
-        return (mOrpheLeft != null && mOrpheLeft.status() == OrpheCoreStatus.connected)
-                || (mOrpheRight != null && mOrpheRight.status() == OrpheCoreStatus.connected);
+        return connectedDeviceType(true) != null || connectedDeviceType(false) != null;
     }
 
     private void clearCharts() {
@@ -1139,9 +1350,10 @@ public class MainActivity extends AppCompatActivity {
         TextView summary = new TextView(this);
         summary.setText(String.format(
                 Locale.US,
-                "Left: %d / Right: %d / %s / %s",
+                "Left: %d / Right: %d / %s / %s / %s",
                 record.leftCount,
                 record.rightCount,
+                record.deviceTypeLabel(),
                 record.receiveMode,
                 record.samplingRate
         ));

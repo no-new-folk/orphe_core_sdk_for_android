@@ -30,6 +30,7 @@ final class OrpheFifoRequester<T> {
     }
 
     private final long serialIntervalMillis;
+    private final boolean anchorAtCurrentSerialWhenCountIsUnavailable;
     @NonNull private final OrpheFifoConfig config;
     @NonNull private final Listener<T> listener;
     private final LinkedHashSet<Integer> carryOverSerials = new LinkedHashSet<>();
@@ -43,12 +44,29 @@ final class OrpheFifoRequester<T> {
             @NonNull final OrpheFifoConfig config,
             @NonNull final Listener<T> listener
     ) {
+        this(serialIntervalMillis, config, listener, false);
+    }
+
+    /**
+     * @param anchorAtCurrentSerialWhenCountIsUnavailable 初回の蓄積件数が0の場合に、
+     *     現在のシリアルを起点にして以降のシリアルを要求するかどうか。
+     *     ORPHE COREのFWはcurrentSerial応答に蓄積件数を含めない（常に0）ため、
+     *     falseのままだと初回範囲が決まらず要求が一度も送られません。
+     */
+    OrpheFifoRequester(
+            final long serialIntervalMillis,
+            @NonNull final OrpheFifoConfig config,
+            @NonNull final Listener<T> listener,
+            final boolean anchorAtCurrentSerialWhenCountIsUnavailable
+    ) {
         if (serialIntervalMillis < 1L) {
             throw new IllegalArgumentException("serialIntervalMillis must be positive.");
         }
         this.serialIntervalMillis = serialIntervalMillis;
         this.config = config;
         this.listener = listener;
+        this.anchorAtCurrentSerialWhenCountIsUnavailable =
+                anchorAtCurrentSerialWhenCountIsUnavailable;
     }
 
     void start() {
@@ -213,6 +231,13 @@ final class OrpheFifoRequester<T> {
     }
 
     private NewRange calculateNewRange(final int currentSerialNumber, final int accumulatedCount) {
+        if (lastSerialNumber == null
+                && accumulatedCount <= 0
+                && anchorAtCurrentSerialWhenCountIsUnavailable) {
+            // 生成途中の可能性がある現在シリアルは次回以降に要求する。
+            lastSerialNumber = normalizeSerialNumber(currentSerialNumber - 1);
+            return new NewRange(0, 0);
+        }
         if (lastSerialNumber == null) {
             final int count = Math.min(
                     Math.max(0, accumulatedCount),
