@@ -1,5 +1,18 @@
 # Change Log
 
+## 2026-11-05
+
+### Changes
+
+---
+
+- **CHORE**: SDK バージョンを 0.6.4 に更新し、`archives/orphecoresdk-release-0.6.4.aar` とサンプルAPK `orphe-core-sdk-sample-0.6.4.apk` を追加
+- **FIX**: ORPHE COREのFIFOパケット（0x36）とORPHE INSOLEのFIFO / Realtimeパケット（0x36 / 0x37 / 0x38）の時刻復号を修正。ミリ秒（byte6-7のuint16）を`×1000ns`として読んでいたため、`startTime` / `endTime`のミリ秒が実質0になっていました
+- **FIX**: ORPHE COREのFIFOパケット（0x36）で、8時点の時刻がほぼ同じになっていた問題を修正。末尾のサンプルを基準に5msずつ進めます
+- **FEAT**: `getCurrentDateTime()`で取得したデバイス時刻を`OrpheCoreCallback` / `OrpheInsoleCallback`の`gotDeviceDateTime(LocalDateTime)`で受け取れるようにしました（ミリ秒は10ms単位）。時刻同期中の読み出しは通知しません
+- **FEAT**: DATE_TIMEの7バイトと`LocalDateTime`を相互変換する`OrpheDateTime`を追加
+- **CHANGE**: サンプルアプリのCSVの`timestamp`列を、秒（小数3桁）からepochミリ秒の整数に変更。`receivedAt`列と同じ単位になります
+
 ## 2026-10-22 (2)
 
 ### Changes

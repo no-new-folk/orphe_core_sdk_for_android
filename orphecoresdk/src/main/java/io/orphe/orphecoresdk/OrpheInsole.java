@@ -647,15 +647,7 @@ public class OrpheInsole {
             return;
         }
         final LocalDateTime now = LocalDateTime.now().plusNanos(offsetMillis * 1_000_000L);
-        final byte[] value = new byte[]{
-                (byte)(now.getYear() - 2000),
-                (byte)(now.getMonthValue()),
-                (byte)(now.getDayOfMonth()),
-                (byte)(now.getHour()),
-                (byte)(now.getMinute()),
-                (byte)(now.getSecond()),
-                (byte)(now.getNano() / 1_000_000 / 10),
-        };
+        final byte[] value = OrpheDateTime.toBytes(now);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             mBluetoothGatt.writeCharacteristic(
                     characteristic, value, BluetoothGattCharacteristic.WRITE_TYPE_NO_RESPONSE);
@@ -668,6 +660,7 @@ public class OrpheInsole {
 
     /**
      * デバイスの時間を取得します。
+     * 取得結果はコールバックの{@code gotDeviceDateTime}で通知されます。
      */
     @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
     @SuppressLint("MissingPermission")
@@ -1465,9 +1458,14 @@ public class OrpheInsole {
                                 return;
                             }
                             try {
-                                Log.d(TAG, "DateTime: " + value[0] + ", " + value[1] + ", " + value[2] + ", " + value[3] + ", " + value[4] + ", " + value[5] + ", " + value[6]);
-                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                                    handleSyncDateTimeRead();
+                                final LocalDateTime dateTime = OrpheDateTime.fromBytes(value);
+                                Log.d(TAG, "DateTime: " + dateTime);
+                                if (mSyncDateTimeInProgress) {
+                                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                                        handleSyncDateTimeRead();
+                                    }
+                                } else {
+                                    mOrpheCallback.gotDeviceDateTime(dateTime);
                                 }
                             } catch (Exception e) {
                                 Log.e(TAG, "Failed to parse date/time. length=" + value.length, e);

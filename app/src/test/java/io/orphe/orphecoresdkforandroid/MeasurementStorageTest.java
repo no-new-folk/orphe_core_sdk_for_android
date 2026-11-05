@@ -107,6 +107,8 @@ public class MeasurementStorageTest {
         assertEquals(header.length, row.length);
         assertFalse(lines[0].contains("pressure"));
         assertFalse(lines[0].contains("quat"));
+        assertEquals("timestamp", header[0]);
+        assertEquals(Long.toString(value.startTime), row[0]);
         assertEquals("receivedAt", header[10]);
         assertEquals(Long.toString(value.receivedAt), row[10]);
     }
@@ -154,6 +156,8 @@ public class MeasurementStorageTest {
         assertEquals(value.pressureToeOutside, Double.parseDouble(row[7]), 0.0);
         assertEquals("serialNumber", header[13]);
         assertEquals(Integer.toString(value.serialNumber), row[13]);
+        assertEquals("timestamp", header[0]);
+        assertEquals("1793877655123", row[0]);
         assertEquals("receivedAt", header[16]);
         assertEquals(Long.toString(value.receivedAt), row[16]);
     }
@@ -163,8 +167,8 @@ public class MeasurementStorageTest {
                 OrpheSidePosition.leftPlantar,
                 42,
                 1,
-                1_000L,
-                1_000L,
+                1_793_877_655_123L,
+                1_793_877_655_123L,
                 11.0, 12.0, 13.0, 14.0, 15.0, 16.0,
                 21.0, 22.0, 23.0,
                 31.0, 32.0, 33.0,

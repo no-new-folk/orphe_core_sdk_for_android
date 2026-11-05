@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Locale;
 import java.util.UUID;
 
 import io.orphe.orphecoresdk.OrpheInsoleSamplingRate;
@@ -276,7 +275,7 @@ public class MeasurementStorage {
             boolean includesQuaternion,
             boolean includesPressure
     ) {
-        appendCell(builder, String.format(Locale.US, "%.3f", value.startTime / 1000.0));
+        appendCell(builder, Long.toString(value.startTime));
         appendCell(builder, Double.toString(value.accX));
         appendCell(builder, Double.toString(value.accY));
         appendCell(builder, Double.toString(value.accZ));
