@@ -4,6 +4,7 @@ import android.bluetooth.BluetoothDevice;
 
 import androidx.annotation.NonNull;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
@@ -59,6 +60,16 @@ public abstract class OrpheInsoleCallback implements OrpheCallback {
      * @param deviceInfo 取得されたDeviceInfoの値。
      */
     public void gotDeviceInfo(DeviceInfoValue deviceInfo) {
+
+    }
+
+    /**
+     * {@link OrpheInsole#getCurrentDateTime()}でデバイスの時刻が取得されたときのコールバック。
+     * ミリ秒は10ms単位です。
+     *
+     * @param dateTime デバイスの時刻。
+     */
+    public void gotDeviceDateTime(LocalDateTime dateTime) {
 
     }
 

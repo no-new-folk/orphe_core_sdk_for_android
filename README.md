@@ -68,7 +68,7 @@ ORPHE COREを選んだ場合、サンプルアプリはCORE用の`Orphe`クラ�
 
 データが存在する側だけ保存ボタンが有効になります。履歴そのものを削除する場合は`Delete`を押します。
 
-CSVのクオータニオン列（`quatW`〜`quatZ`）は、INSOLEでは`Realtime`かつ100Hz、ORPHE COREでは`Realtime`で計測した場合だけ出力されます。ORPHE COREのCSVには圧力6列（`pressureToeOutside`〜`pressureHeel`）はヘッダーを含めて出力されません。`Request` / `FIFO`、および`Realtime`の200Hzでは、これら4列はヘッダーを含めて出力されません。Euler角は全モードでCSVへ出力されません。
+CSVの`timestamp`列（センサー値の計測時刻）と`receivedAt`列（SDKの受信時刻）は、どちらもepochミリ秒の整数です。CSVのクオータニオン列（`quatW`〜`quatZ`）は、INSOLEでは`Realtime`かつ100Hz、ORPHE COREでは`Realtime`で計測した場合だけ出力されます。ORPHE COREのCSVには圧力6列（`pressureToeOutside`〜`pressureHeel`）はヘッダーを含めて出力されません。`Request` / `FIFO`、および`Realtime`の200Hzでは、これら4列はヘッダーを含めて出力されません。Euler角は全モードでCSVへ出力されません。
 
 ### 5. 結果をシェアする
 
@@ -314,6 +314,7 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、INSOLEでは`Realtime
 - 作成した`OrpheInsole`オブジェクトの`status`で現在の接続ステータスを把握することが可能です。
 
 - 作成した`OrpheInsole`オブジェクトの`getDeviceInfo`を呼び出すことでバッテリー情報を含むORPHE INSOLEの情報を取得することができます。取得した値は`OrpheInsoleCallback`の`gotDeviceInfo`に渡されます。
+- 作成した`OrpheInsole`オブジェクトの`getCurrentDateTime`を呼び出すことでORPHE INSOLEの現在時刻を取得することができます。取得した値は`OrpheInsoleCallback`の`gotDeviceDateTime`に`LocalDateTime`で渡されます（ミリ秒は10ms単位）。
 
     ```java
     mOrpheInsole.getDeviceInfo();
@@ -524,6 +525,7 @@ CSVのクオータニオン列（`quatW`〜`quatZ`）は、INSOLEでは`Realtime
 - 作成した`Orphe`オブジェクトの`status`で現在の接続ステータスを把握することが可能です。
 
 - 作成した`Orphe`オブジェクトの`getDeviceInfo`を呼び出すことでバッテリー情報を含むORPHE COREの情報を取得することができます。取得した値は`OrpheCoreCallback`の`gotDeviceInfo`に渡されます。
+- 作成した`Orphe`オブジェクトの`getCurrentDateTime`を呼び出すことでORPHE COREの現在時刻を取得することができます。取得した値は`OrpheCoreCallback`の`gotDeviceDateTime`に`LocalDateTime`で渡されます（ミリ秒は10ms単位）。
 
     ```java
     mOrphe.getDeviceInfo();

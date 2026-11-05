@@ -283,14 +283,13 @@ public class OrpheSensorValue {
                         getUint8(bytes, 3),
                         getUint8(bytes, 4),
                         getUint8(bytes, 5),
-                        getUint16(bytes, 6) * 1000
+                        getUint16(bytes, 6) * 1_000_000
                 );
                 for (int s = 7; s >= 0; s--) {
                     index = s * 12 + 8;
-                    final long duration = s == 0
-                            ? 0
-                            : 5 * 1000;
-                    final LocalDateTime timestamp = baseTimestamp.minusNanos(duration);
+                    // 先頭のサンプルほど新しい。末尾(s=7)が基準時刻で、以降5msずつ進む。
+                    final long duration = (7 - s) * 5_000_000L;
+                    final LocalDateTime timestamp = baseTimestamp.plusNanos(duration);
                     // request / fifoの受信処理で、復号後に時系列姿勢を計算する。
                     final double quatW = 0;
                     final double quatX = 0;

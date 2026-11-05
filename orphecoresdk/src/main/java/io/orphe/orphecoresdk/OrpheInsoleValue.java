@@ -325,7 +325,7 @@ public class OrpheInsoleValue {
                         getUint8(bytes, 3),
                         getUint8(bytes, 4),
                         getUint8(bytes, 5),
-                        getUint16(bytes, 6) * 1000
+                        getUint16(bytes, 6) * 1_000_000
                 );
                 final int[] samplePositions = outputSamplingRate == OrpheInsoleSamplingRate.hz100
                         ? new int[]{3, 1}
@@ -398,7 +398,7 @@ public class OrpheInsoleValue {
                         getUint8(bytes, 3),
                         getUint8(bytes, 4),
                         getUint8(bytes, 5),
-                        getUint16(bytes, 6) * 1000
+                        getUint16(bytes, 6) * 1_000_000
                 );
                 for (int s = 1; s >= 0; s--) {
                     index = s * 32 + 8;
